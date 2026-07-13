@@ -6,7 +6,8 @@ use App\Http\Requests\ContactMessageRequest;
 use App\Models\AiHistory;
 use App\Models\Blog;
 use App\Models\ContactMessage;
-use Illuminate\Http\Request;
+use App\Models\ResumeShare;
+use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Response;
 use Illuminate\View\View;
 
@@ -142,9 +143,14 @@ class FrontendPageController extends Controller
         return view('landing.blog-show', ['post' => $post]);
     }
 
-    public function dashboard(): View
+    public function dashboard(): RedirectResponse|View
     {
         $user = request()->user();
+
+        if ($user->hasRole('admin')) {
+            return redirect()->route('admin.dashboard');
+        }
+
         $resumes = $user->resumes()->with(['profile', 'template'])->latest('updated_at')->limit(5)->get();
         $latestReport = $user->resumes()
             ->join('ats_reports', 'resumes.id', '=', 'ats_reports.resume_id')
@@ -158,7 +164,9 @@ class FrontendPageController extends Controller
                 'resume_score' => (int) round($user->resumes()->avg('completion_score') ?: 0),
                 'ats_score' => (int) round($latestReport ?: 0),
                 'ai_rewrites' => AiHistory::query()->where('user_id', $user->id)->count(),
-                'recruiter_opens' => $user->resumes()->withCount('shares')->get()->sum('shares_count'),
+                'recruiter_opens' => ResumeShare::query()
+                    ->whereIn('resume_id', $user->resumes()->select('id'))
+                    ->count(),
             ],
         ]);
     }

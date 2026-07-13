@@ -43,8 +43,19 @@ class RegisteredUserController extends Controller
         ]);
         $user->assignRole('member');
 
+        // Feature Flag: Email Verification
+        // If email verification is disabled (development mode), auto-verify the user
+        if (! config('features.email_verification')) {
+            $user->forceFill(['email_verified_at' => now()])->save();
+        }
+
+        // Feature Flag: Email Verification
+        // Fire Registered event to trigger email notification listener
+        // The listener will check the feature flag and skip sending if disabled
         event(new Registered($user));
 
+        // Feature Flag: Auto-login in development
+        // Always login the user after registration regardless of verification status
         Auth::login($user);
 
         return redirect(route('dashboard', absolute: false));

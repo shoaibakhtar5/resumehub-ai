@@ -19,7 +19,7 @@ class ResumePolicy
 
     public function create(User $user): bool
     {
-        return $user->status === 'active';
+        return $user->status === null || $user->status === 'active';
     }
 
     public function update(User $user, Resume $resume): bool

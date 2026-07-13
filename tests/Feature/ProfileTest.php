@@ -21,6 +21,24 @@ class ProfileTest extends TestCase
         $response->assertOk();
     }
 
+    public function test_unverified_users_are_redirected_from_profile_when_verification_is_required(): void
+    {
+        config()->set('features.email_verification', true);
+
+        $user = User::factory()->unverified()->create();
+
+        // The profile route is protected by VerifyEmailFeatureFlag middleware.
+        // When email verification is enabled, unverified users should be redirected.
+        $middleware = new \App\Http\Middleware\VerifyEmailFeatureFlag();
+        $request = \Illuminate\Http\Request::create('/profile', 'GET');
+        $request->setUserResolver(fn () => $user);
+
+        $response = $middleware->handle($request, fn ($req) => new \Illuminate\Http\Response('OK'));
+
+        $this->assertEquals(302, $response->getStatusCode());
+        $this->assertEquals(route('verification.notice'), $response->headers->get('Location'));
+    }
+
     public function test_profile_information_can_be_updated(): void
     {
         $user = User::factory()->create();

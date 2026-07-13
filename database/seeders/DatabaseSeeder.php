@@ -14,7 +14,6 @@ use App\Models\TemplateCategory;
 use App\Models\User;
 use App\Services\ResumeService;
 use Illuminate\Database\Seeder;
-use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Str;
 
 class DatabaseSeeder extends Seeder
@@ -24,6 +23,8 @@ class DatabaseSeeder extends Seeder
         $permissions = collect([
             'admin.access',
             'users.manage',
+            'roles.manage',
+            'permissions.manage',
             'resumes.manage',
             'templates.create',
             'templates.update',
@@ -50,19 +51,8 @@ class DatabaseSeeder extends Seeder
             ['guard_name' => 'web', 'description' => 'Resume builder user', 'is_system' => true]
         );
 
-        $admin = User::query()->updateOrCreate(
-            ['email' => 'admin@resumehub.ai'],
-            [
-                'name' => 'ResumeHub Admin',
-                'password' => Hash::make('password'),
-                'is_admin' => true,
-                'status' => 'active',
-                'email_verified_at' => now(),
-                'timezone' => 'UTC',
-                'locale' => 'en',
-            ]
-        );
-        $admin->roles()->syncWithoutDetaching([$adminRole->id]);
+        $this->call(AdminUserSeeder::class);
+        $admin = User::query()->where('email', 'admin@resumehub.test')->firstOrFail();
 
         $user = User::query()->updateOrCreate(
             ['email' => 'test@example.com'],

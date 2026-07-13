@@ -2,26 +2,35 @@
 
 namespace App\Services;
 
+use App\Models\Language;
 use App\Models\Resume;
 use App\Models\ResumeShare;
+use App\Models\ResumeVersion;
+use App\Models\Skill;
 use App\Models\User;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Support\Arr;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Str;
+use InvalidArgumentException;
 
 class ResumeService
 {
+    public function __construct(private readonly ResumeVersionService $versions) {}
+
     public function create(User $user, array $data): Resume
     {
         return DB::transaction(function () use ($user, $data): Resume {
+            $data = $this->withDefaultSections($data);
+
             $resume = $user->resumes()->create([
                 'uuid' => (string) Str::uuid(),
                 'template_id' => $data['template_id'] ?? null,
                 'title' => $data['title'],
                 'slug' => $this->uniqueSlug($user, $data['title']),
                 'status' => 'draft',
+                'source' => $data['source'] ?? 'builder',
                 'target_role' => $data['target_role'] ?? null,
                 'target_company' => $data['target_company'] ?? null,
                 'language' => $data['language'] ?? 'en',
@@ -29,19 +38,18 @@ class ResumeService
             ]);
 
             $this->syncContent($resume, $data);
-            $resume->forceFill([
-                'completion_score' => $this->completionScore($resume),
-                'search_text' => $this->plainText($resume),
-            ])->save();
-            $this->createVersion($resume, $user, 'created', 'Initial draft');
+            $this->persistDerivedFields($resume);
+            $this->versions->create($resume, $user, 'created', 'Initial draft');
 
-            return $resume->refresh()->load(['profile', 'experiences', 'educations', 'template']);
+            return $this->freshResume($resume);
         });
     }
 
     public function update(Resume $resume, User $user, array $data, string $reason = 'manual'): Resume
     {
         return DB::transaction(function () use ($resume, $user, $data, $reason): Resume {
+            $data = $this->withDefaultSections($data);
+
             $resume->fill([
                 'template_id' => $data['template_id'] ?? $resume->template_id,
                 'title' => $data['title'] ?? $resume->title,
@@ -49,7 +57,7 @@ class ResumeService
                 'target_role' => $data['target_role'] ?? null,
                 'target_company' => $data['target_company'] ?? null,
                 'language' => $data['language'] ?? $resume->language,
-                'settings' => array_replace($resume->settings ?? [], $this->settingsFromData($data)),
+                'settings' => array_replace_recursive($resume->settings ?? [], $this->settingsFromData($data)),
             ]);
 
             if ($reason === 'autosave') {
@@ -58,20 +66,17 @@ class ResumeService
 
             $resume->save();
             $this->syncContent($resume, $data);
-            $resume->forceFill([
-                'completion_score' => $this->completionScore($resume),
-                'search_text' => $this->plainText($resume),
-            ])->save();
-            $this->createVersion($resume, $user, $reason, Str::headline($reason));
+            $this->persistDerivedFields($resume);
+            $this->versions->create($resume, $user, $reason, Str::headline($reason));
 
-            return $resume->refresh()->load(['profile', 'experiences', 'educations', 'template']);
+            return $this->freshResume($resume);
         });
     }
 
     public function duplicate(Resume $resume, User $user): Resume
     {
         return DB::transaction(function () use ($resume, $user): Resume {
-            $resume->load(['profile', 'experiences', 'educations']);
+            $resume->loadMissing($this->versions->snapshotRelations());
 
             $copy = $resume->replicate(['uuid', 'slug', 'last_autosaved_at', 'last_exported_at', 'archived_at']);
             $copy->uuid = (string) Str::uuid();
@@ -82,22 +87,33 @@ class ResumeService
             $copy->is_favorite = false;
             $copy->save();
 
-            if ($resume->profile) {
-                $copy->profile()->create(Arr::except($resume->profile->toArray(), ['id', 'resume_id', 'created_at', 'updated_at', 'deleted_at']));
-            }
+            $this->copyHasOne($resume, $copy, 'profile');
+            $this->copyHasOne($resume, $copy, 'summary');
+            $this->copyRows($resume, $copy, 'socialLinks');
+            $this->copyRows($resume, $copy, 'experiences');
+            $this->copyRows($resume, $copy, 'educations');
+            $this->copyRows($resume, $copy, 'projects');
+            $this->copyRows($resume, $copy, 'certifications');
+            $this->copyRows($resume, $copy, 'awards');
+            $this->copyRows($resume, $copy, 'references');
+            $this->copyRows($resume, $copy, 'sections');
+            $this->copyCustomSections($resume, $copy);
+            $this->copyTaxonomy($resume, $copy, 'skills', ['category', 'proficiency', 'years_experience', 'is_visible', 'sort_order']);
+            $this->copyTaxonomy($resume, $copy, 'languages', ['proficiency', 'is_visible', 'sort_order']);
+            $this->persistDerivedFields($copy);
+            $this->versions->create($copy, $user, 'duplicated', 'Copied from '.$resume->title);
 
-            foreach ($resume->experiences as $experience) {
-                $copy->experiences()->create(Arr::except($experience->toArray(), ['id', 'resume_id', 'created_at', 'updated_at', 'deleted_at']));
-            }
-
-            foreach ($resume->educations as $education) {
-                $copy->educations()->create(Arr::except($education->toArray(), ['id', 'resume_id', 'created_at', 'updated_at', 'deleted_at']));
-            }
-
-            $this->createVersion($copy, $user, 'duplicated', 'Copied from '.$resume->title);
-
-            return $copy->refresh();
+            return $this->freshResume($copy);
         });
+    }
+
+    public function restoreVersion(Resume $resume, ResumeVersion $version, User $user): Resume
+    {
+        if ($version->resume_id !== $resume->id) {
+            throw new InvalidArgumentException('The selected version does not belong to this resume.');
+        }
+
+        return $this->update($resume, $user, $this->payloadFromSnapshot($version->snapshot ?? []), 'restored');
     }
 
     public function setArchived(Resume $resume, bool $archived): Resume
@@ -146,8 +162,9 @@ class ResumeService
 
     public function plainText(Resume $resume): string
     {
-        $resume->loadMissing(['profile', 'experiences', 'educations']);
+        $resume->loadMissing($this->versions->snapshotRelations());
         $settings = $resume->settings ?? [];
+        $summary = $resume->summary?->content ?: ($settings['summary'] ?? null);
         $chunks = [
             $resume->title,
             $resume->target_role,
@@ -157,17 +174,77 @@ class ResumeService
             $resume->profile?->email,
             $resume->profile?->phone,
             $resume->profile?->location,
-            $settings['summary'] ?? null,
-            implode(', ', $settings['skills'] ?? []),
+            $resume->profile?->website,
         ];
 
-        foreach ($resume->experiences as $experience) {
-            $chunks[] = trim($experience->position.' '.$experience->company.' '.$experience->description);
-            $chunks[] = implode(', ', $experience->achievements ?? []);
+        foreach ($resume->socialLinks->where('is_visible', true) as $link) {
+            $chunks[] = trim($link->label.' '.$link->url);
         }
 
-        foreach ($resume->educations as $education) {
-            $chunks[] = trim($education->institution.' '.$education->degree.' '.$education->field_of_study.' '.$education->description);
+        if ($this->sectionVisible($resume, 'summary')) {
+            $chunks[] = 'Summary '.$summary;
+        }
+
+        if ($this->sectionVisible($resume, 'experience')) {
+            $chunks[] = 'Experience';
+            foreach ($resume->experiences->where('is_visible', true) as $experience) {
+                $chunks[] = trim($experience->position.' '.$experience->company.' '.$experience->location.' '.$experience->description);
+                $chunks[] = implode(', ', $experience->achievements ?? []);
+                $chunks[] = implode(', ', $experience->technologies ?? []);
+            }
+        }
+
+        if ($this->sectionVisible($resume, 'education')) {
+            $chunks[] = 'Education';
+            foreach ($resume->educations->where('is_visible', true) as $education) {
+                $chunks[] = trim($education->institution.' '.$education->degree.' '.$education->field_of_study.' '.$education->grade.' '.$education->description);
+            }
+        }
+
+        if ($this->sectionVisible($resume, 'projects')) {
+            $chunks[] = 'Projects';
+            foreach ($resume->projects->where('is_visible', true) as $project) {
+                $chunks[] = trim($project->name.' '.$project->role.' '.$project->description.' '.implode(', ', $project->technologies ?? []));
+            }
+        }
+
+        if ($this->sectionVisible($resume, 'skills')) {
+            $chunks[] = 'Skills '.implode(', ', $settings['skills'] ?? $resume->skills->pluck('name')->all());
+        }
+
+        if ($this->sectionVisible($resume, 'languages')) {
+            $chunks[] = 'Languages '.implode(', ', $settings['languages'] ?? $resume->languages->pluck('name')->all());
+        }
+
+        if ($this->sectionVisible($resume, 'certifications')) {
+            $chunks[] = 'Certifications';
+            foreach ($resume->certifications->where('is_visible', true) as $certification) {
+                $chunks[] = trim($certification->name.' '.$certification->issuer.' '.$certification->description);
+            }
+        }
+
+        if ($this->sectionVisible($resume, 'awards')) {
+            $chunks[] = 'Awards';
+            foreach ($resume->awards->where('is_visible', true) as $award) {
+                $chunks[] = trim($award->title.' '.$award->issuer.' '.$award->description);
+            }
+        }
+
+        if ($this->sectionVisible($resume, 'references')) {
+            $chunks[] = 'References';
+            foreach ($resume->references->where('is_visible', true) as $reference) {
+                $chunks[] = trim($reference->name.' '.$reference->title.' '.$reference->company.' '.$reference->email.' '.$reference->phone);
+            }
+        }
+
+        if ($this->sectionVisible($resume, 'custom_sections')) {
+            foreach ($resume->customSections->where('is_visible', true) as $section) {
+                $chunks[] = $section->title;
+                $chunks[] = $section->description;
+                foreach ($section->items->where('is_visible', true) as $item) {
+                    $chunks[] = trim($item->title.' '.$item->subtitle.' '.$item->description);
+                }
+            }
         }
 
         return trim(preg_replace('/\s+/', ' ', implode(' ', array_filter($chunks))));
@@ -180,90 +257,623 @@ class ResumeService
 
     private function syncContent(Resume $resume, array $data): void
     {
-        $profile = array_filter($data['profile'] ?? [], fn ($value) => filled($value));
-        $resume->profile()->updateOrCreate(['resume_id' => $resume->id], $profile);
+        $this->syncProfile($resume, $data['profile'] ?? []);
+        $this->syncSummary($resume, $data['summary'] ?? null);
+
+        if (array_key_exists('social_links', $data)) {
+            $this->syncSocialLinks($resume, $data['social_links'] ?? []);
+        }
 
         if (array_key_exists('experiences', $data)) {
-            $resume->experiences()->delete();
-            foreach ($data['experiences'] ?? [] as $index => $experience) {
-                if (! filled($experience['company'] ?? null) && ! filled($experience['position'] ?? null)) {
-                    continue;
-                }
-
-                $resume->experiences()->create([
-                    'company' => $experience['company'] ?? 'Company',
-                    'position' => $experience['position'] ?? 'Role',
-                    'location' => $experience['location'] ?? null,
-                    'start_date' => $experience['start_date'] ?? null,
-                    'end_date' => $experience['end_date'] ?? null,
-                    'is_current' => (bool) ($experience['is_current'] ?? false),
-                    'description' => $experience['description'] ?? null,
-                    'achievements' => $this->lines($experience['description'] ?? ''),
-                    'sort_order' => $index,
-                ]);
-            }
+            $this->syncExperiences($resume, $data['experiences'] ?? []);
         }
 
         if (array_key_exists('educations', $data)) {
-            $resume->educations()->delete();
-            foreach ($data['educations'] ?? [] as $index => $education) {
-                if (! filled($education['institution'] ?? null)) {
+            $this->syncEducations($resume, $data['educations'] ?? []);
+        }
+
+        if (array_key_exists('projects', $data)) {
+            $this->syncProjects($resume, $data['projects'] ?? []);
+        }
+
+        if (array_key_exists('skills', $data)) {
+            $this->syncSkills($resume, $data['skills'] ?? []);
+        }
+
+        if (array_key_exists('languages', $data)) {
+            $this->syncLanguages($resume, $data['languages'] ?? []);
+        }
+
+        if (array_key_exists('certifications', $data)) {
+            $this->syncCertifications($resume, $data['certifications'] ?? []);
+        }
+
+        if (array_key_exists('awards', $data)) {
+            $this->syncAwards($resume, $data['awards'] ?? []);
+        }
+
+        if (array_key_exists('references', $data)) {
+            $this->syncReferences($resume, $data['references'] ?? []);
+        }
+
+        if (array_key_exists('custom_sections', $data)) {
+            $this->syncCustomSections($resume, $data['custom_sections'] ?? []);
+        }
+
+        $this->syncSections($resume, $data['sections'] ?? $this->defaultSections());
+    }
+
+    private function syncProfile(Resume $resume, array $profile): void
+    {
+        $profileData = array_filter($profile, fn ($value) => filled($value));
+        $profileMetadata = $profileData['metadata'] ?? null;
+        unset($profileData['metadata']);
+
+        $resume->profile()->updateOrCreate(['resume_id' => $resume->id], [
+            ...$profileData,
+            'metadata' => $profileMetadata ?? [],
+        ]);
+    }
+
+    private function syncSummary(Resume $resume, ?string $summary): void
+    {
+        $resume->summary()->updateOrCreate(['resume_id' => $resume->id], [
+            'content' => $summary,
+            'word_count' => str_word_count((string) $summary),
+            'metadata' => [],
+        ]);
+    }
+
+    private function syncSocialLinks(Resume $resume, array $links): void
+    {
+        $this->syncRows($resume, 'socialLinks', $links, fn (array $link): bool => filled($link['url'] ?? null), fn (array $link, int $index): array => [
+            'platform' => $link['platform'] ?? 'website',
+            'label' => $link['label'] ?? null,
+            'url' => $link['url'],
+            'is_visible' => $this->bool($link['is_visible'] ?? true),
+            'sort_order' => (int) ($link['sort_order'] ?? $index),
+        ]);
+    }
+
+    private function syncExperiences(Resume $resume, array $experiences): void
+    {
+        $this->syncRows($resume, 'experiences', $experiences, fn (array $experience): bool => filled($experience['company'] ?? null) || filled($experience['position'] ?? null), fn (array $experience, int $index): array => [
+            'company' => $experience['company'] ?? 'Independent',
+            'position' => $experience['position'] ?? 'Contributor',
+            'employment_type' => $experience['employment_type'] ?? null,
+            'location' => $experience['location'] ?? null,
+            'start_date' => $experience['start_date'] ?? null,
+            'end_date' => $experience['end_date'] ?? null,
+            'is_current' => $this->bool($experience['is_current'] ?? false),
+            'description' => $experience['description'] ?? null,
+            'achievements' => $experience['achievements'] ?? $this->lines($experience['description'] ?? ''),
+            'technologies' => $this->list($experience['technologies'] ?? []),
+            'is_visible' => $this->bool($experience['is_visible'] ?? true),
+            'sort_order' => (int) ($experience['sort_order'] ?? $index),
+        ]);
+    }
+
+    private function syncEducations(Resume $resume, array $educations): void
+    {
+        $this->syncRows($resume, 'educations', $educations, fn (array $education): bool => filled($education['institution'] ?? null), fn (array $education, int $index): array => [
+            'institution' => $education['institution'],
+            'degree' => $education['degree'] ?? null,
+            'field_of_study' => $education['field_of_study'] ?? null,
+            'location' => $education['location'] ?? null,
+            'start_date' => $education['start_date'] ?? null,
+            'end_date' => $education['end_date'] ?? null,
+            'is_current' => $this->bool($education['is_current'] ?? false),
+            'grade' => $education['grade'] ?? null,
+            'description' => $education['description'] ?? null,
+            'highlights' => $education['highlights'] ?? $this->lines($education['description'] ?? ''),
+            'is_visible' => $this->bool($education['is_visible'] ?? true),
+            'sort_order' => (int) ($education['sort_order'] ?? $index),
+            'metadata' => [],
+        ]);
+    }
+
+    private function syncProjects(Resume $resume, array $projects): void
+    {
+        $this->syncRows($resume, 'projects', $projects, fn (array $project): bool => filled($project['name'] ?? null), fn (array $project, int $index): array => [
+            'name' => $project['name'],
+            'role' => $project['role'] ?? null,
+            'url' => $project['url'] ?? null,
+            'repository_url' => $project['repository_url'] ?? null,
+            'start_date' => $project['start_date'] ?? null,
+            'end_date' => $project['end_date'] ?? null,
+            'is_current' => $this->bool($project['is_current'] ?? false),
+            'description' => $project['description'] ?? null,
+            'highlights' => $project['highlights'] ?? $this->lines($project['description'] ?? ''),
+            'technologies' => $this->list($project['technologies'] ?? []),
+            'is_visible' => $this->bool($project['is_visible'] ?? true),
+            'sort_order' => (int) ($project['sort_order'] ?? $index),
+            'metadata' => [],
+        ]);
+    }
+
+    private function syncSkills(Resume $resume, mixed $skills): void
+    {
+        $sync = [];
+
+        foreach ($this->skillRows($skills) as $index => $row) {
+            $skill = $this->findOrCreateSkill($row['name'], $row['category'] ?? null);
+            $sync[$skill->id] = [
+                'category' => $row['category'] ?? null,
+                'proficiency' => $row['proficiency'] ?? null,
+                'years_experience' => $row['years_experience'] ?? null,
+                'is_visible' => $this->bool($row['is_visible'] ?? true),
+                'sort_order' => (int) ($row['sort_order'] ?? $index),
+            ];
+        }
+
+        $resume->skills()->sync($sync);
+    }
+
+    private function syncLanguages(Resume $resume, mixed $languages): void
+    {
+        $sync = [];
+
+        foreach ($this->languageRows($languages) as $index => $row) {
+            $language = $this->findOrCreateLanguage($row['name'], $row['iso_code'] ?? null);
+            $sync[$language->id] = [
+                'proficiency' => $row['proficiency'] ?? null,
+                'is_visible' => $this->bool($row['is_visible'] ?? true),
+                'sort_order' => (int) ($row['sort_order'] ?? $index),
+            ];
+        }
+
+        $resume->languages()->sync($sync);
+    }
+
+    private function syncCertifications(Resume $resume, array $certifications): void
+    {
+        $this->syncRows($resume, 'certifications', $certifications, fn (array $certification): bool => filled($certification['name'] ?? null), fn (array $certification, int $index): array => [
+            'name' => $certification['name'],
+            'issuer' => $certification['issuer'] ?? null,
+            'issued_at' => $certification['issued_at'] ?? null,
+            'expires_at' => $certification['expires_at'] ?? null,
+            'credential_id' => $certification['credential_id'] ?? null,
+            'credential_url' => $certification['credential_url'] ?? null,
+            'description' => $certification['description'] ?? null,
+            'is_visible' => $this->bool($certification['is_visible'] ?? true),
+            'sort_order' => (int) ($certification['sort_order'] ?? $index),
+            'metadata' => [],
+        ]);
+    }
+
+    private function syncAwards(Resume $resume, array $awards): void
+    {
+        $this->syncRows($resume, 'awards', $awards, fn (array $award): bool => filled($award['title'] ?? null), fn (array $award, int $index): array => [
+            'title' => $award['title'],
+            'issuer' => $award['issuer'] ?? null,
+            'awarded_at' => $award['awarded_at'] ?? null,
+            'description' => $award['description'] ?? null,
+            'is_visible' => $this->bool($award['is_visible'] ?? true),
+            'sort_order' => (int) ($award['sort_order'] ?? $index),
+            'metadata' => [],
+        ]);
+    }
+
+    private function syncReferences(Resume $resume, array $references): void
+    {
+        $this->syncRows($resume, 'references', $references, fn (array $reference): bool => filled($reference['name'] ?? null) || $this->bool($reference['available_on_request'] ?? false), fn (array $reference, int $index): array => [
+            'name' => $reference['name'] ?? 'Available on request',
+            'title' => $reference['title'] ?? null,
+            'company' => $reference['company'] ?? null,
+            'email' => $reference['email'] ?? null,
+            'phone' => $reference['phone'] ?? null,
+            'relationship' => $reference['relationship'] ?? null,
+            'available_on_request' => $this->bool($reference['available_on_request'] ?? false),
+            'is_visible' => $this->bool($reference['is_visible'] ?? true),
+            'sort_order' => (int) ($reference['sort_order'] ?? $index),
+            'metadata' => [],
+        ]);
+    }
+
+    private function syncCustomSections(Resume $resume, array $sections): void
+    {
+        foreach ($resume->customSections as $section) {
+            $section->items()->delete();
+        }
+
+        $resume->customSections()->delete();
+
+        foreach (array_values($sections) as $index => $section) {
+            if (! filled($section['title'] ?? null)) {
+                continue;
+            }
+
+            $customSection = $resume->customSections()->create([
+                'title' => $section['title'],
+                'description' => $section['description'] ?? null,
+                'is_visible' => $this->bool($section['is_visible'] ?? true),
+                'sort_order' => (int) ($section['sort_order'] ?? $index),
+                'settings' => $section['settings'] ?? [],
+            ]);
+
+            foreach (array_values($section['items'] ?? []) as $itemIndex => $item) {
+                if (! filled($item['title'] ?? null) && ! filled($item['description'] ?? null)) {
                     continue;
                 }
 
-                $resume->educations()->create([
-                    'institution' => $education['institution'],
-                    'degree' => $education['degree'] ?? null,
-                    'field_of_study' => $education['field_of_study'] ?? null,
-                    'location' => $education['location'] ?? null,
-                    'start_date' => $education['start_date'] ?? null,
-                    'end_date' => $education['end_date'] ?? null,
-                    'is_current' => (bool) ($education['is_current'] ?? false),
-                    'description' => $education['description'] ?? null,
-                    'sort_order' => $index,
+                $customSection->items()->create([
+                    'title' => $item['title'] ?? null,
+                    'subtitle' => $item['subtitle'] ?? null,
+                    'url' => $item['url'] ?? null,
+                    'start_date' => $item['start_date'] ?? null,
+                    'end_date' => $item['end_date'] ?? null,
+                    'description' => $item['description'] ?? null,
+                    'fields' => $item['fields'] ?? [],
+                    'is_visible' => $this->bool($item['is_visible'] ?? true),
+                    'sort_order' => (int) ($item['sort_order'] ?? $itemIndex),
                 ]);
             }
         }
     }
 
-    private function createVersion(Resume $resume, User $user, string $reason, string $label): void
+    private function syncSections(Resume $resume, array $sections): void
     {
-        $resume->loadMissing(['profile', 'experiences', 'educations']);
-        $snapshot = [
-            'resume' => Arr::except($resume->toArray(), ['created_at', 'updated_at', 'deleted_at']),
-            'profile' => $resume->profile?->toArray(),
-            'experiences' => $resume->experiences->toArray(),
-            'educations' => $resume->educations->toArray(),
-        ];
+        $orderedSections = collect($sections)
+            ->filter(fn ($section) => filled($section['section_key'] ?? null))
+            ->values();
 
-        $resume->versions()->create([
-            'created_by_user_id' => $user->id,
-            'version_number' => ((int) $resume->versions()->max('version_number')) + 1,
-            'label' => $label,
-            'reason' => $reason,
-            'snapshot' => $snapshot,
-            'content_hash' => hash('sha256', json_encode($snapshot)),
-        ]);
+        if ($orderedSections->isEmpty()) {
+            $orderedSections = collect($this->defaultSections());
+        }
+
+        foreach ($orderedSections as $index => $section) {
+            $resume->sections()->updateOrCreate(
+                ['resume_id' => $resume->id, 'section_key' => $section['section_key']],
+                [
+                    'title' => $section['title'] ?? Str::of($section['section_key'])->replace('_', ' ')->replace('-', ' ')->title()->value(),
+                    'is_visible' => $this->bool($section['is_visible'] ?? true),
+                    'sort_order' => (int) ($section['sort_order'] ?? $index),
+                    'settings' => $section['settings'] ?? [],
+                ]
+            );
+        }
+
+        $resume->sections()->whereNotIn('section_key', $orderedSections->pluck('section_key')->all())->delete();
+    }
+
+    private function syncRows(Resume $resume, string $relation, array $items, callable $shouldPersist, callable $map): void
+    {
+        $resume->{$relation}()->delete();
+
+        foreach (array_values($items) as $index => $item) {
+            $item = is_array($item) ? $item : [];
+
+            if (! $shouldPersist($item)) {
+                continue;
+            }
+
+            $resume->{$relation}()->create($map($item, $index));
+        }
     }
 
     private function settingsFromData(array $data): array
     {
+        $sections = $this->normalizeSections($data['sections'] ?? $this->defaultSections());
+
         return [
             'summary' => $data['summary'] ?? null,
-            'skills' => $this->normalizeSkills($data['skills'] ?? []),
+            'skills' => collect($this->skillRows($data['skills'] ?? []))->pluck('name')->values()->all(),
+            'languages' => collect($this->languageRows($data['languages'] ?? []))->pluck('name')->values()->all(),
+            'sections' => $sections,
+            'theme' => $this->theme($data['theme'] ?? []),
+            'import' => $data['import'] ?? null,
         ];
     }
 
-    private function normalizeSkills(mixed $skills): array
+    private function persistDerivedFields(Resume $resume): void
+    {
+        $resume = $this->freshResume($resume);
+
+        $resume->forceFill([
+            'completion_score' => $this->completionScore($resume),
+            'search_text' => $this->plainText($resume),
+        ])->save();
+    }
+
+    private function completionScore(Resume $resume): int
+    {
+        $resume->loadMissing($this->versions->snapshotRelations());
+        $settings = $resume->settings ?? [];
+        $score = 0;
+
+        $score += $resume->profile?->full_name ? 8 : 0;
+        $score += $resume->profile?->email ? 8 : 0;
+        $score += $resume->profile?->phone || $resume->profile?->website ? 6 : 0;
+        $score += $resume->profile?->headline ? 8 : 0;
+        $score += filled($resume->summary?->content ?: ($settings['summary'] ?? null)) ? 15 : 0;
+        $score += $resume->experiences->where('is_visible', true)->isNotEmpty() ? 20 : 0;
+        $score += $resume->educations->where('is_visible', true)->isNotEmpty() ? 10 : 0;
+        $score += count($settings['skills'] ?? []) >= 4 ? 12 : 0;
+        $score += $resume->projects->where('is_visible', true)->isNotEmpty() ? 5 : 0;
+        $score += $resume->languages->isNotEmpty() || $resume->certifications->where('is_visible', true)->isNotEmpty() ? 4 : 0;
+        $score += $resume->sections->isNotEmpty() ? 4 : 0;
+
+        return min(100, $score);
+    }
+
+    private function payloadFromSnapshot(array $snapshot): array
+    {
+        $resume = $snapshot['resume'] ?? [];
+        $settings = $resume['settings'] ?? [];
+
+        return [
+            'title' => $resume['title'] ?? 'Restored Resume',
+            'target_role' => $resume['target_role'] ?? null,
+            'target_company' => $resume['target_company'] ?? null,
+            'template_id' => $resume['template_id'] ?? null,
+            'language' => $resume['language'] ?? 'en',
+            'summary' => $snapshot['summary']['content'] ?? ($settings['summary'] ?? null),
+            'theme' => $settings['theme'] ?? [],
+            'profile' => $this->snapshotRow($snapshot['profile'] ?? []),
+            'social_links' => $this->snapshotRows($snapshot['social_links'] ?? []),
+            'experiences' => $this->snapshotRows($snapshot['experiences'] ?? []),
+            'educations' => $this->snapshotRows($snapshot['educations'] ?? []),
+            'projects' => $this->snapshotRows($snapshot['projects'] ?? []),
+            'skills' => collect($snapshot['skills'] ?? [])->map(fn (array $skill): array => [
+                'name' => $skill['name'] ?? '',
+                'category' => $skill['pivot']['category'] ?? ($skill['category'] ?? null),
+                'proficiency' => $skill['pivot']['proficiency'] ?? null,
+                'years_experience' => $skill['pivot']['years_experience'] ?? null,
+                'is_visible' => $skill['pivot']['is_visible'] ?? true,
+                'sort_order' => $skill['pivot']['sort_order'] ?? 0,
+            ])->all(),
+            'languages' => collect($snapshot['languages'] ?? [])->map(fn (array $language): array => [
+                'name' => $language['name'] ?? '',
+                'iso_code' => $language['iso_code'] ?? null,
+                'proficiency' => $language['pivot']['proficiency'] ?? null,
+                'is_visible' => $language['pivot']['is_visible'] ?? true,
+                'sort_order' => $language['pivot']['sort_order'] ?? 0,
+            ])->all(),
+            'certifications' => $this->snapshotRows($snapshot['certifications'] ?? []),
+            'awards' => $this->snapshotRows($snapshot['awards'] ?? []),
+            'references' => $this->snapshotRows($snapshot['references'] ?? []),
+            'custom_sections' => collect($snapshot['custom_sections'] ?? [])->map(function (array $section): array {
+                $section = $this->snapshotRow($section);
+                $section['items'] = $this->snapshotRows($section['items'] ?? []);
+
+                return $section;
+            })->all(),
+            'sections' => $this->snapshotRows($snapshot['sections'] ?? []),
+        ];
+    }
+
+    private function snapshotRows(array $rows): array
+    {
+        return collect($rows)->map(fn (array $row): array => $this->snapshotRow($row))->values()->all();
+    }
+
+    private function snapshotRow(?array $row): array
+    {
+        return Arr::except($row ?? [], ['id', 'resume_id', 'created_at', 'updated_at', 'deleted_at', 'pivot']);
+    }
+
+    private function freshResume(Resume $resume): Resume
+    {
+        return $resume->refresh()->load($this->versions->snapshotRelations());
+    }
+
+    private function withDefaultSections(array $data): array
+    {
+        if (! array_key_exists('sections', $data) || $data['sections'] === []) {
+            $data['sections'] = $this->defaultSections();
+        }
+
+        return $data;
+    }
+
+    private function defaultSections(): array
+    {
+        return [
+            ['section_key' => 'summary', 'title' => 'Profile', 'is_visible' => true, 'sort_order' => 0],
+            ['section_key' => 'experience', 'title' => 'Experience', 'is_visible' => true, 'sort_order' => 1],
+            ['section_key' => 'education', 'title' => 'Education', 'is_visible' => true, 'sort_order' => 2],
+            ['section_key' => 'skills', 'title' => 'Skills', 'is_visible' => true, 'sort_order' => 3],
+            ['section_key' => 'projects', 'title' => 'Projects', 'is_visible' => true, 'sort_order' => 4],
+            ['section_key' => 'languages', 'title' => 'Languages', 'is_visible' => true, 'sort_order' => 5],
+            ['section_key' => 'certifications', 'title' => 'Certifications', 'is_visible' => true, 'sort_order' => 6],
+            ['section_key' => 'awards', 'title' => 'Awards', 'is_visible' => true, 'sort_order' => 7],
+            ['section_key' => 'references', 'title' => 'References', 'is_visible' => false, 'sort_order' => 8],
+            ['section_key' => 'custom_sections', 'title' => 'Custom Sections', 'is_visible' => true, 'sort_order' => 9],
+        ];
+    }
+
+    private function normalizeSections(array $sections): array
+    {
+        return collect($sections ?: $this->defaultSections())
+            ->filter(fn ($section) => filled($section['section_key'] ?? null))
+            ->values()
+            ->map(fn ($section, int $index): array => [
+                'section_key' => $section['section_key'],
+                'title' => $section['title'] ?? Str::headline($section['section_key']),
+                'is_visible' => $this->bool($section['is_visible'] ?? true),
+                'sort_order' => (int) ($section['sort_order'] ?? $index),
+                'settings' => $section['settings'] ?? [],
+            ])
+            ->sortBy('sort_order')
+            ->values()
+            ->all();
+    }
+
+    private function sectionVisible(Resume $resume, string $key): bool
+    {
+        $section = $resume->sections->firstWhere('section_key', $key);
+
+        return ! $section || $section->is_visible;
+    }
+
+    private function theme(array $theme): array
+    {
+        return [
+            'accent_color' => $theme['accent_color'] ?? '#3525cd',
+            'font_pairing' => $theme['font_pairing'] ?? 'modern',
+            'density' => $theme['density'] ?? 'balanced',
+            'page_size' => $theme['page_size'] ?? 'letter',
+        ];
+    }
+
+    private function skillRows(mixed $skills): array
     {
         if (is_string($skills)) {
             $skills = preg_split('/[\n,]+/', $skills) ?: [];
         }
 
         return collect($skills)
-            ->map(fn ($skill) => trim((string) $skill))
+            ->map(function ($skill, int $index): array {
+                if (is_array($skill)) {
+                    return [
+                        'name' => trim((string) ($skill['name'] ?? '')),
+                        'category' => $skill['category'] ?? null,
+                        'proficiency' => $skill['proficiency'] ?? null,
+                        'years_experience' => $skill['years_experience'] ?? null,
+                        'is_visible' => $skill['is_visible'] ?? true,
+                        'sort_order' => $skill['sort_order'] ?? $index,
+                    ];
+                }
+
+                return [
+                    'name' => trim((string) $skill),
+                    'is_visible' => true,
+                    'sort_order' => $index,
+                ];
+            })
+            ->filter(fn (array $skill): bool => filled($skill['name']))
+            ->unique(fn (array $skill): string => Str::lower($skill['name']))
+            ->values()
+            ->all();
+    }
+
+    private function languageRows(mixed $languages): array
+    {
+        if (is_string($languages)) {
+            $languages = preg_split('/[\n,]+/', $languages) ?: [];
+        }
+
+        return collect($languages)
+            ->map(function ($language, int $index): array {
+                if (is_array($language)) {
+                    return [
+                        'name' => trim((string) ($language['name'] ?? '')),
+                        'iso_code' => $language['iso_code'] ?? null,
+                        'proficiency' => $language['proficiency'] ?? null,
+                        'is_visible' => $language['is_visible'] ?? true,
+                        'sort_order' => $language['sort_order'] ?? $index,
+                    ];
+                }
+
+                return [
+                    'name' => trim((string) $language),
+                    'is_visible' => true,
+                    'sort_order' => $index,
+                ];
+            })
+            ->filter(fn (array $language): bool => filled($language['name']))
+            ->unique(fn (array $language): string => Str::lower($language['name']))
+            ->values()
+            ->all();
+    }
+
+    private function findOrCreateSkill(string $name, ?string $category): Skill
+    {
+        $slug = Str::slug($name) ?: Str::random(8);
+        $skill = Skill::withTrashed()
+            ->where('slug', $slug)
+            ->orWhere('name', $name)
+            ->first();
+
+        if (! $skill) {
+            return Skill::query()->create([
+                'name' => $name,
+                'slug' => $slug,
+                'category' => $category,
+            ]);
+        }
+
+        if ($skill->trashed()) {
+            $skill->restore();
+        }
+
+        if ($category && ! $skill->category) {
+            $skill->forceFill(['category' => $category])->save();
+        }
+
+        return $skill;
+    }
+
+    private function findOrCreateLanguage(string $name, ?string $isoCode): Language
+    {
+        $language = Language::withTrashed()
+            ->where('name', $name)
+            ->when($isoCode, fn ($query) => $query->orWhere('iso_code', $isoCode))
+            ->first();
+
+        if (! $language) {
+            return Language::query()->create([
+                'name' => $name,
+                'iso_code' => $isoCode,
+            ]);
+        }
+
+        if ($language->trashed()) {
+            $language->restore();
+        }
+
+        if ($isoCode && ! $language->iso_code) {
+            $language->forceFill(['iso_code' => $isoCode])->save();
+        }
+
+        return $language;
+    }
+
+    private function copyHasOne(Resume $resume, Resume $copy, string $relation): void
+    {
+        if ($resume->{$relation}) {
+            $copy->{$relation}()->create($this->snapshotRow($resume->{$relation}->toArray()));
+        }
+    }
+
+    private function copyRows(Resume $resume, Resume $copy, string $relation): void
+    {
+        foreach ($resume->{$relation} as $row) {
+            $copy->{$relation}()->create($this->snapshotRow($row->toArray()));
+        }
+    }
+
+    private function copyCustomSections(Resume $resume, Resume $copy): void
+    {
+        foreach ($resume->customSections as $section) {
+            $newSection = $copy->customSections()->create(Arr::except($this->snapshotRow($section->toArray()), ['items']));
+
+            foreach ($section->items as $item) {
+                $newSection->items()->create(Arr::except($item->toArray(), ['id', 'resume_custom_section_id', 'created_at', 'updated_at', 'deleted_at']));
+            }
+        }
+    }
+
+    private function copyTaxonomy(Resume $resume, Resume $copy, string $relation, array $pivotColumns): void
+    {
+        $sync = [];
+
+        foreach ($resume->{$relation} as $item) {
+            $sync[$item->id] = Arr::only($item->pivot->toArray(), $pivotColumns);
+        }
+
+        $copy->{$relation}()->sync($sync);
+    }
+
+    private function list(mixed $value): array
+    {
+        if (is_string($value)) {
+            $value = preg_split('/[\n,]+/', $value) ?: [];
+        }
+
+        return collect($value)
+            ->map(fn ($item) => trim((string) $item))
             ->filter()
-            ->unique()
             ->values()
             ->all();
     }
@@ -271,27 +881,15 @@ class ResumeService
     private function lines(string $text): array
     {
         return collect(preg_split('/\r\n|\r|\n/', $text) ?: [])
-            ->map(fn ($line) => trim($line, " \t\n\r\0\x0B-•"))
+            ->map(fn ($line) => trim($line, " \t\n\r\0\x0B-*"))
             ->filter()
             ->values()
             ->all();
     }
 
-    private function completionScore(Resume $resume): int
+    private function bool(mixed $value): bool
     {
-        $resume->loadMissing(['profile', 'experiences', 'educations']);
-        $settings = $resume->settings ?? [];
-        $score = 15;
-
-        $score += $resume->profile?->full_name ? 10 : 0;
-        $score += $resume->profile?->email ? 10 : 0;
-        $score += $resume->profile?->headline ? 10 : 0;
-        $score += filled($settings['summary'] ?? null) ? 15 : 0;
-        $score += $resume->experiences->isNotEmpty() ? 25 : 0;
-        $score += $resume->educations->isNotEmpty() ? 10 : 0;
-        $score += count($settings['skills'] ?? []) >= 4 ? 15 : 0;
-
-        return min(100, $score);
+        return filter_var($value, FILTER_VALIDATE_BOOLEAN, FILTER_NULL_ON_FAILURE) ?? false;
     }
 
     private function uniqueSlug(User $user, string $title, ?int $ignoreId = null): string

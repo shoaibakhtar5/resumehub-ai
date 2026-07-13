@@ -22,6 +22,12 @@
                     <span class="block text-label-sm text-on-surface-variant">{{ $mode === 'admin' ? 'Admin workspace' : 'Career workspace' }}</span>
                 </span>
             </a>
+            <form method="POST" action="{{ route('logout') }}">
+                @csrf
+                <button type="submit" class="rounded-full p-2 text-on-surface-variant transition hover:bg-surface-container hover:text-primary rh-focus" aria-label="Log out" title="Log out">
+                    <x-ui.icon name="arrow-left-on-rectangle" class="h-6 w-6" />
+                </button>
+            </form>
         </div>
     </div>
 </header>
