@@ -135,7 +135,7 @@
             <h2 class="font-display text-base font-semibold">Quick Actions</h2>
             <div class="mt-4 grid gap-3 sm:grid-cols-2">
                 @foreach ([
-                    ['Add New Template', 'Upload a resume template', 'admin.resources.create', ['resource' => 'templates'], 'cloud-arrow-up', 'violet'],
+                    ['Add New Template', 'Upload a resume template', 'admin.templates.create', [], 'cloud-arrow-up', 'violet'],
                     ['Add New User', 'Create a new user account', 'admin.users.create', [], 'users', 'blue'],
                     ['Create Blog Post', 'Write a new blog post', 'admin.resources.create', ['resource' => 'blog'], 'pencil-square', 'violet'],
                     ['System Settings', 'Configure system settings', 'admin.settings', [], 'cog-6-tooth', 'orange'],

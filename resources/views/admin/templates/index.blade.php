@@ -1,0 +1,51 @@
+<x-admin-layout title="Templates">
+    <div class="space-y-5">
+        <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <div><p class="text-sm text-slate-500">Dashboard <span class="mx-2">›</span> Templates</p></div>
+            <a href="{{ route('admin.templates.create') }}" class="inline-flex items-center justify-center gap-2 rounded-lg bg-indigo-600 px-4 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-indigo-700"><x-ui.icon name="plus" class="h-4 w-4" /> Upload Template</a>
+        </div>
+
+        <div class="grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
+            @foreach ([['Total Templates',$stats['total'],'briefcase','bg-indigo-50 text-indigo-600'],['Active Templates',$stats['active'],'check-badge','bg-blue-50 text-blue-600'],['Featured Templates',$stats['featured'],'star','bg-amber-50 text-amber-600'],['Total Downloads',number_format($stats['downloads']),'arrow-down-tray','bg-emerald-50 text-emerald-600'],['Categories',$stats['categories'],'squares-2x2','bg-violet-50 text-violet-600']] as [$label,$value,$icon,$tone])
+                <section class="rounded-xl border border-slate-200 bg-white p-4 shadow-sm"><div class="flex items-start gap-3"><span class="flex h-10 w-10 items-center justify-center rounded-lg {{ $tone }}"><x-ui.icon :name="$icon" class="h-5 w-5" /></span><div><p class="text-xs font-medium text-slate-500">{{ $label }}</p><p class="mt-1 text-xl font-bold text-slate-900">{{ $value }}</p></div></div></section>
+            @endforeach
+        </div>
+
+        <div class="grid items-start gap-4 xl:grid-cols-[minmax(0,1fr)_270px]">
+            <section class="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
+                <form method="GET" class="grid gap-2 border-b border-slate-200 p-3 md:grid-cols-[minmax(220px,1fr)_150px_130px_130px_auto]">
+                    <label class="flex items-center rounded-lg border border-slate-200 px-3"><x-ui.icon name="magnifying-glass" class="h-4 w-4 text-slate-400"/><input name="search" value="{{ request('search') }}" class="w-full border-0 bg-transparent px-2 py-2 text-sm focus:ring-0" placeholder="Search templates..."></label>
+                    <select name="category" class="rounded-lg border-slate-200 text-sm"><option value="">All Categories</option>@foreach($categories as $category)<option value="{{ $category->id }}" @selected((int)request('category')===$category->id)>{{ $category->name }}</option>@endforeach</select>
+                    <select name="status" class="rounded-lg border-slate-200 text-sm"><option value="">All Status</option>@foreach(['published'=>'Active','draft'=>'Draft','disabled'=>'Disabled'] as $value=>$label)<option value="{{ $value }}" @selected(request('status')===$value)>{{ $label }}</option>@endforeach</select>
+                    <select name="featured" class="rounded-lg border-slate-200 text-sm"><option value="">All Featured</option><option value="1" @selected(request('featured')==='1')>Featured</option><option value="0" @selected(request('featured')==='0')>Not Featured</option></select>
+                    <div class="flex gap-2"><button class="rounded-lg border border-slate-200 px-3 text-sm font-semibold hover:bg-slate-50">Filter</button><a href="{{ route('admin.templates') }}" class="rounded-lg border border-slate-200 px-3 py-2 text-sm font-semibold hover:bg-slate-50">Reset</a></div>
+                </form>
+                <div class="overflow-x-auto">
+                    <table class="w-full min-w-[980px] text-left text-sm">
+                        <thead class="border-b border-slate-200 bg-slate-50 text-[10px] uppercase tracking-wide text-slate-500"><tr><th class="px-4 py-3">Template</th><th class="px-3 py-3">Category</th><th class="px-3 py-3">Sections</th><th class="px-3 py-3">Status</th><th class="px-3 py-3 text-center">Featured</th><th class="px-3 py-3 text-center">Order</th><th class="px-3 py-3">Downloads</th><th class="px-4 py-3 text-right">Actions</th></tr></thead>
+                        <tbody class="divide-y divide-slate-100">
+                        @forelse($templates as $template)
+                            @php($sections = data_get($template->config, 'supported_sections', []))
+                            <tr class="hover:bg-slate-50/70">
+                                <td class="px-4 py-3"><div class="flex items-center gap-3"><div class="h-16 w-14 overflow-hidden rounded border border-slate-200 bg-slate-50">@if($template->thumbnail_url)<img src="{{ $template->thumbnail_url }}" class="h-full w-full object-cover" alt="">@else<div class="flex h-full items-center justify-center text-indigo-500"><x-ui.icon name="document-text" class="h-6 w-6"/></div>@endif</div><div class="max-w-[250px]"><p class="font-semibold text-slate-900">{{ $template->name }}</p><p class="text-xs text-slate-500">{{ $template->slug }}</p><p class="mt-1 line-clamp-2 text-xs text-slate-500">{{ $template->description ?: 'No description provided.' }}</p></div></div></td>
+                                <td class="px-3 py-3"><span class="rounded-full bg-indigo-50 px-2 py-1 text-xs font-semibold text-indigo-700">{{ $template->category?->name ?? 'Uncategorized' }}</span></td>
+                                <td class="px-3 py-3"><div class="flex max-w-32 flex-wrap gap-1">@foreach(array_slice($sections,0,5) as $section)<span title="{{ Str::headline($section) }}" class="rounded bg-slate-100 px-1.5 py-1 text-[10px] text-slate-600">{{ Str::limit(Str::headline($section), 4, '') }}</span>@endforeach @if(count($sections)>5)<span class="text-xs text-slate-500">+{{ count($sections)-5 }}</span>@endif</div></td>
+                                <td class="px-3 py-3"><form method="POST" action="{{ route('admin.templates.status',$template) }}">@csrf @method('PATCH')<button class="inline-flex items-center gap-2" title="Enable or disable"><span class="h-2 w-2 rounded-full {{ $template->status==='published'?'bg-emerald-500':'bg-slate-400' }}"></span><span class="text-xs font-medium">{{ $template->status==='published'?'Active':Str::headline($template->status) }}</span><span class="relative h-5 w-9 rounded-full {{ $template->status==='published'?'bg-indigo-600':'bg-slate-300' }}"><span class="absolute top-0.5 h-4 w-4 rounded-full bg-white transition {{ $template->status==='published'?'left-4':'left-0.5' }}"></span></span></button></form></td>
+                                <td class="px-3 py-3 text-center"><form method="POST" action="{{ route('admin.templates.featured',$template) }}">@csrf @method('PATCH')<button title="Toggle featured" class="{{ $template->is_featured?'text-amber-500':'text-slate-400' }}"><x-ui.icon name="star" class="h-5 w-5"/></button></form></td>
+                                <td class="px-3 py-3 text-center text-slate-600">{{ $template->sort_order }}</td><td class="px-3 py-3 text-slate-600">{{ number_format($downloadCounts[$template->id] ?? 0) }}</td>
+                                <td class="px-4 py-3"><div class="flex justify-end gap-1"><a href="{{ route('admin.templates.preview',$template) }}" title="Preview" class="rounded-md border border-slate-200 p-1.5 text-slate-500 hover:text-indigo-600"><x-ui.icon name="eye" class="h-4 w-4"/></a><form method="POST" action="{{ route('admin.templates.duplicate',$template) }}">@csrf<button title="Duplicate" class="rounded-md border border-slate-200 p-1.5 text-slate-500 hover:text-indigo-600"><x-ui.icon name="document-duplicate" class="h-4 w-4"/></button></form><a href="{{ route('admin.templates.edit',$template) }}" title="Edit" class="rounded-md border border-slate-200 p-1.5 text-slate-500 hover:text-indigo-600"><x-ui.icon name="pencil-square" class="h-4 w-4"/></a><form method="POST" action="{{ route('admin.templates.destroy',$template) }}" onsubmit="return confirm('Delete this template?')">@csrf @method('DELETE')<button title="Delete" class="rounded-md border border-slate-200 p-1.5 text-rose-500 hover:bg-rose-50"><x-ui.icon name="trash" class="h-4 w-4"/></button></form></div></td>
+                            </tr>
+                        @empty<tr><td colspan="8" class="px-6 py-16 text-center"><x-ui.icon name="document-plus" class="mx-auto h-10 w-10 text-slate-300"/><p class="mt-3 font-semibold text-slate-700">No templates found</p><p class="mt-1 text-sm text-slate-500">Upload the first reusable resume template.</p></td></tr>@endforelse
+                        </tbody>
+                    </table>
+                </div>
+                <div class="border-t border-slate-200 px-4 py-3">{{ $templates->links() }}</div>
+            </section>
+
+            <aside class="space-y-4">
+                <section class="rounded-xl border border-slate-200 bg-white p-4 shadow-sm"><h2 class="font-semibold text-slate-900">Upload Template</h2><a href="{{ route('admin.templates.create') }}" class="mt-3 flex min-h-48 flex-col items-center justify-center rounded-xl border border-dashed border-indigo-400 bg-indigo-50/40 p-5 text-center"><x-ui.icon name="document-arrow-up" class="h-9 w-9 text-indigo-600"/><p class="mt-3 text-sm font-medium">HTML or TXT template</p><p class="mt-1 text-xs text-slate-500">Maximum file size: 5MB</p><span class="mt-4 w-full rounded-lg bg-indigo-600 px-3 py-2 text-sm font-semibold text-white">Choose File</span></a></section>
+                <section class="rounded-xl border border-slate-200 bg-white p-4 shadow-sm"><h2 class="font-semibold text-slate-900">Placeholder Variables</h2><p class="mt-1 text-xs text-slate-500">Use these variables in template HTML:</p><div class="mt-3 flex flex-wrap gap-1.5">@foreach($placeholders as $key=>$label)<code class="rounded bg-indigo-50 px-1.5 py-1 text-[10px] text-indigo-700">@{{ {{ $key }} }}</code>@endforeach</div></section>
+            </aside>
+        </div>
+    </div>
+</x-admin-layout>

@@ -31,8 +31,28 @@ class Template extends Model
         return $this->belongsTo(User::class, 'created_by_user_id');
     }
 
+    public function previewMedia(): BelongsTo
+    {
+        return $this->belongsTo(Media::class, 'preview_media_id');
+    }
+
     public function resumes(): HasMany
     {
         return $this->hasMany(Resume::class);
+    }
+
+    public function scopePublished($query)
+    {
+        return $query->where('status', 'published');
+    }
+
+    public function getIsFeaturedAttribute(): bool
+    {
+        return (bool) data_get($this->config, 'is_featured', false);
+    }
+
+    public function getThumbnailUrlAttribute(): ?string
+    {
+        return data_get($this->previewMedia?->metadata, 'url') ?: $this->preview_path;
     }
 }

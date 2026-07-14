@@ -106,7 +106,6 @@ class AdminPanelTest extends TestCase
         $this->actingAs($admin);
 
         $requests = [
-            'templates' => ['name' => 'Admin Template', 'status' => 'published'],
             'resumes' => ['user_id' => $admin->id, 'title' => 'Admin Resume', 'status' => 'draft'],
             'blog' => ['title' => 'Admin Blog', 'body' => 'Article content', 'status' => 'draft'],
             'pages' => ['title' => 'Admin Page', 'content' => 'Page content', 'status' => 'draft'],

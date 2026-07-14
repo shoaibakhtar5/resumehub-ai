@@ -14,6 +14,7 @@ use App\Models\TemplateCategory;
 use App\Models\User;
 use App\Services\ResumeService;
 use Illuminate\Database\Seeder;
+use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Str;
 
 class DatabaseSeeder extends Seeder

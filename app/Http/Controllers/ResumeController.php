@@ -17,6 +17,7 @@ use App\Services\PreviewService;
 use App\Services\ResumeBuilderService;
 use App\Services\ResumeImportService;
 use App\Services\ResumeService;
+use App\Services\TemplateRenderingService;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -31,6 +32,7 @@ class ResumeController extends Controller
         private readonly PreviewService $preview,
         private readonly ResumeImportService $imports,
         private readonly MediaService $media,
+        private readonly TemplateRenderingService $templateRenderer,
     ) {}
 
     public function index(Request $request): View
@@ -56,7 +58,7 @@ class ResumeController extends Controller
 
         return view('dashboard.builder', [
             'resume' => $resume,
-            'templates' => Template::query()->orderBy('sort_order')->orderBy('name')->get(),
+            'templates' => Template::query()->published()->orderBy('sort_order')->orderBy('name')->get(),
             'selectedTemplate' => $request->integer('template') ?: null,
             'latestReport' => null,
         ]);
@@ -84,7 +86,7 @@ class ResumeController extends Controller
 
         return view('dashboard.builder', [
             'resume' => $resume,
-            'templates' => Template::query()->orderBy('sort_order')->orderBy('name')->get(),
+            'templates' => Template::query()->published()->orderBy('sort_order')->orderBy('name')->get(),
             'selectedTemplate' => $resume->template_id,
             'latestReport' => $resume->atsReports()->with(['keywords', 'issues'])->latest('scanned_at')->first(),
         ]);
@@ -184,6 +186,7 @@ class ResumeController extends Controller
         return view('dashboard.preview', [
             'resume' => $resume,
             'latestReport' => $latestReport,
+            'renderedHtml' => $resume ? $this->templateRenderer->render($resume->template, $resume) : null,
         ]);
     }
 
@@ -209,6 +212,7 @@ class ResumeController extends Controller
             'resume' => $share->resume,
             'latestReport' => $share->resume->atsReports()->latest('scanned_at')->first(),
             'sharedView' => true,
+            'renderedHtml' => $this->templateRenderer->render($share->resume->template, $share->resume),
         ]);
     }
 
@@ -225,6 +229,7 @@ class ResumeController extends Controller
             return Pdf::loadView('dashboard.resume-pdf', [
                 'resume' => $resume,
                 'settings' => $resume->settings ?? [],
+                'renderedHtml' => $this->templateRenderer->render($resume->template, $resume, true),
             ])->setPaper(($resume->settings['theme']['page_size'] ?? 'a4') === 'letter' ? 'letter' : 'a4')
                 ->download(str($resume->slug ?: 'resume')->slug().'.pdf');
         }

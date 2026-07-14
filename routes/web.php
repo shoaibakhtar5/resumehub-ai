@@ -4,6 +4,7 @@ use App\Http\Controllers\Admin\AdminResourceController;
 use App\Http\Controllers\Admin\PermissionController as AdminPermissionController;
 use App\Http\Controllers\Admin\RoleController as AdminRoleController;
 use App\Http\Controllers\Admin\UserController as AdminUserController;
+use App\Http\Controllers\Admin\TemplateController as AdminTemplateController;
 use App\Http\Controllers\AiController;
 use App\Http\Controllers\AtsController;
 use App\Http\Controllers\FrontendPageController;
@@ -100,9 +101,19 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::patch('/permissions/{permission}', [AdminPermissionController::class, 'update'])->name('permissions.update');
         Route::delete('/permissions/{permission}', [AdminPermissionController::class, 'destroy'])->name('permissions.destroy');
 
+        Route::get('/templates', [AdminTemplateController::class, 'index'])->name('templates');
+        Route::get('/templates/create', [AdminTemplateController::class, 'create'])->name('templates.create');
+        Route::post('/templates', [AdminTemplateController::class, 'store'])->name('templates.store');
+        Route::get('/templates/{template}/preview', [AdminTemplateController::class, 'preview'])->name('templates.preview');
+        Route::get('/templates/{template}/edit', [AdminTemplateController::class, 'edit'])->name('templates.edit');
+        Route::patch('/templates/{template}', [AdminTemplateController::class, 'update'])->name('templates.update');
+        Route::delete('/templates/{template}', [AdminTemplateController::class, 'destroy'])->name('templates.destroy');
+        Route::post('/templates/{template}/duplicate', [AdminTemplateController::class, 'duplicate'])->name('templates.duplicate');
+        Route::patch('/templates/{template}/status', [AdminTemplateController::class, 'status'])->name('templates.status');
+        Route::patch('/templates/{template}/featured', [AdminTemplateController::class, 'featured'])->name('templates.featured');
+
         foreach ([
             'resumes' => 'resumes',
-            'templates' => 'templates',
             'blog' => 'blog',
             'pages' => 'pages',
             'team' => 'team',
@@ -121,9 +132,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
                 ->name($resource);
         }
 
-        Route::get('/templates/upload', [AdminResourceController::class, 'create'])
-            ->defaults('resource', 'templates')
-            ->name('template-upload');
+        Route::get('/templates/upload', fn () => redirect()->route('admin.templates.create'))->name('template-upload');
         Route::get('/website-settings', [AdminResourceController::class, 'index'])
             ->defaults('resource', 'settings')
             ->name('website-settings');

@@ -18,6 +18,8 @@ class RegistrationTest extends TestCase
 
     public function test_new_users_can_register(): void
     {
+        config(['features.email_verification' => false]);
+
         $response = $this->post('/register', [
             'name' => 'Test User',
             'email' => 'test@example.com',
@@ -27,6 +29,11 @@ class RegistrationTest extends TestCase
 
         $this->assertAuthenticated();
         $this->assertDatabaseHas('users', ['email' => 'test@example.com']);
+        $this->assertDatabaseHas('role_user', [
+            'user_id' => auth()->id(),
+        ]);
+        $this->assertNotNull(auth()->user()->email_verified_at);
+        $this->assertDatabaseCount('jobs', 0);
         $response->assertRedirect(route('dashboard', absolute: false));
 
         $this->post('/logout')->assertRedirect('/');

@@ -1,5 +1,3 @@
-import './bootstrap';
-
 import Alpine from 'alpinejs';
 
 window.Alpine = Alpine;
@@ -8,6 +6,9 @@ window.resumeBuilder = function resumeBuilder(initial) {
     return {
         ...initial,
         autosaveTimer: null,
+        previewTimer: null,
+        autosaveInFlight: false,
+        autosaveQueued: false,
         autosaveState: 'Ready',
         draggedSection: null,
         photoRevision: 0,
@@ -32,9 +33,12 @@ window.resumeBuilder = function resumeBuilder(initial) {
         },
 
         dispatchPreview() {
-            if (window.Livewire) {
-                window.Livewire.dispatch('resume-updated', { data: this.getPayload() });
-            }
+            window.clearTimeout(this.previewTimer);
+            this.previewTimer = window.setTimeout(() => {
+                if (window.Livewire) {
+                    window.Livewire.dispatch('resume-updated', { data: this.getPayload() });
+                }
+            }, 80);
         },
 
         autosave() {
@@ -44,6 +48,13 @@ window.resumeBuilder = function resumeBuilder(initial) {
                 return;
             }
 
+            if (this.autosaveInFlight) {
+                this.autosaveQueued = true;
+
+                return;
+            }
+
+            this.autosaveInFlight = true;
             this.autosaveState = 'Saving...';
             const body = new FormData(form);
             const submittedPhotoRevision = this.photoRevision;
@@ -86,6 +97,15 @@ window.resumeBuilder = function resumeBuilder(initial) {
                 })
                 .catch(() => {
                     this.autosaveState = 'Save failed';
+                })
+                .finally(() => {
+                    this.autosaveInFlight = false;
+
+                    if (this.autosaveQueued) {
+                        this.autosaveQueued = false;
+                        window.clearTimeout(this.autosaveTimer);
+                        this.autosaveTimer = window.setTimeout(() => this.autosave(), 400);
+                    }
                 });
         },
 

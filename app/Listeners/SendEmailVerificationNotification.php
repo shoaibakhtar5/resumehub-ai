@@ -49,4 +49,9 @@ class SendEmailVerificationNotification implements ShouldQueue
         // Only send verification email if feature is enabled
         $event->user->sendEmailVerificationNotification();
     }
+
+    public function shouldQueue(Registered $event): bool
+    {
+        return (bool) config('features.email_verification');
+    }
 }

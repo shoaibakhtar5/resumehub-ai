@@ -8,6 +8,7 @@ use Illuminate\Auth\Events\Registered;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Validation\Rules;
 use Illuminate\Validation\ValidationException;
@@ -36,18 +37,20 @@ class RegisteredUserController extends Controller
             'password' => ['required', 'confirmed', Rules\Password::defaults()],
         ]);
 
-        $user = User::create([
-            'name' => $request->name,
-            'email' => $request->email,
-            'password' => Hash::make($request->password),
-        ]);
-        $user->assignRole('member');
+        $user = DB::transaction(function () use ($request): User {
+            $user = User::create([
+                'name' => $request->name,
+                'email' => $request->email,
+                'password' => Hash::make($request->password),
+            ]);
+            $user->assignRole('member');
 
-        // Feature Flag: Email Verification
-        // If email verification is disabled (development mode), auto-verify the user
-        if (! config('features.email_verification')) {
-            $user->forceFill(['email_verified_at' => now()])->save();
-        }
+            if (! config('features.email_verification')) {
+                $user->forceFill(['email_verified_at' => now()])->save();
+            }
+
+            return $user;
+        });
 
         // Feature Flag: Email Verification
         // Fire Registered event to trigger email notification listener
@@ -57,6 +60,7 @@ class RegisteredUserController extends Controller
         // Feature Flag: Auto-login in development
         // Always login the user after registration regardless of verification status
         Auth::login($user);
+        $request->session()->regenerate();
 
         return redirect(route('dashboard', absolute: false));
     }

@@ -31,18 +31,17 @@ class ResumeBuilderTest extends TestCase
             ->assertSee('Professional Summary')
             ->assertSee('Review')
             ->assertSee('resume-live-preview')
-            ->assertSee('wire:ignore', false)
             ->assertSee('novalidate', false);
     }
 
-    public function test_resume_builder_lists_templates_created_by_admin_regardless_of_status(): void
+    public function test_resume_builder_lists_only_published_templates_created_by_admin(): void
     {
         $user = User::factory()->create();
         $template = Template::query()->create([
             'created_by_user_id' => $user->id,
             'name' => 'Admin Corporate Template',
             'slug' => 'admin-corporate-template',
-            'status' => 'draft',
+            'status' => 'published',
         ]);
 
         $this->actingAs($user)
@@ -234,6 +233,75 @@ class ResumeBuilderTest extends TestCase
         $this->assertNotNull($resume->last_autosaved_at);
         $this->assertStringStartsWith('/storage/resume-photos/', $resume->profile->photo_path);
         Storage::disk('public')->assertExists(str_replace('/storage/', '', $resume->profile->photo_path));
+    }
+
+    public function test_autosave_preserves_unsupported_sections_and_stable_row_ids_without_creating_versions(): void
+    {
+        $user = User::factory()->create();
+
+        $this->actingAs($user)->post('/resumes', [
+            'title' => 'Stable Resume',
+            'profile' => ['full_name' => 'Taylor Reed', 'website' => 'https://example.com'],
+            'experiences' => [[
+                'company' => 'Example Company',
+                'position' => 'Engineer',
+            ]],
+        ])->assertRedirect();
+
+        $resume = $user->resumes()->firstOrFail();
+        $experience = $resume->experiences()->firstOrFail();
+        $resume->certifications()->create([
+            'name' => 'Cloud Certification',
+            'issuer' => 'Example Institute',
+            'is_visible' => true,
+        ]);
+        $versionCount = $resume->versions()->count();
+
+        $this->post(route('resumes.autosave', $resume), [
+            'title' => 'Stable Resume',
+            'profile' => ['full_name' => 'Taylor Reed', 'website' => ''],
+            'present_collections' => ['experiences', 'educations', 'projects', 'social_links', 'skills', 'languages', 'sections'],
+            'experiences' => [[
+                'id' => $experience->id,
+                'company' => 'Example Company',
+                'position' => 'Senior Engineer',
+                'is_visible' => true,
+                'sort_order' => 0,
+            ]],
+            'theme' => [
+                'accent_color' => '#153e75',
+                'font_pairing' => 'modern',
+                'density' => 'balanced',
+                'page_size' => 'a4',
+            ],
+        ])->assertOk()->assertJson(['saved' => true]);
+
+        $resume->refresh()->load(['profile', 'experiences', 'certifications']);
+        $this->assertNull($resume->profile->website);
+        $this->assertSame($experience->id, $resume->experiences->first()->id);
+        $this->assertSame('Senior Engineer', $resume->experiences->first()->position);
+        $this->assertSame('Cloud Certification', $resume->certifications->first()->name);
+        $this->assertSame($versionCount, $resume->versions()->count());
+        $this->assertSame('#153e75', data_get($resume->settings, 'theme.accent_color'));
+    }
+
+    public function test_live_preview_removes_deleted_collection_items(): void
+    {
+        Livewire::test(LiveResumePreview::class)
+            ->dispatch('resume-updated', data: [
+                'experiences' => [
+                    ['company' => 'Keep Company', 'position' => 'Engineer'],
+                    ['company' => 'Remove Company', 'position' => 'Intern'],
+                ],
+            ])
+            ->assertSee('Remove Company')
+            ->dispatch('resume-updated', data: [
+                'experiences' => [
+                    ['company' => 'Keep Company', 'position' => 'Engineer'],
+                ],
+            ])
+            ->assertSee('Keep Company')
+            ->assertDontSee('Remove Company');
     }
 
     public function test_live_preview_updates_from_builder_events_without_a_page_refresh(): void

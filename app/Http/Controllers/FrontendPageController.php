@@ -3,12 +3,11 @@
 namespace App\Http\Controllers;
 
 use App\Http\Requests\ContactMessageRequest;
-use App\Models\AiHistory;
 use App\Models\Blog;
 use App\Models\ContactMessage;
-use App\Models\ResumeShare;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Response;
+use Illuminate\Support\Facades\DB;
 use Illuminate\View\View;
 
 class FrontendPageController extends Controller
@@ -152,21 +151,33 @@ class FrontendPageController extends Controller
         }
 
         $resumes = $user->resumes()->with(['profile', 'template'])->latest('updated_at')->limit(5)->get();
-        $latestReport = $user->resumes()
-            ->join('ats_reports', 'resumes.id', '=', 'ats_reports.resume_id')
-            ->where('ats_reports.user_id', $user->id)
-            ->orderByDesc('ats_reports.scanned_at')
-            ->value('ats_reports.ats_score');
+        $dashboardStats = DB::table('users')->where('users.id', $user->id)
+            ->selectSub(fn ($query) => $query->from('resumes')
+                ->whereColumn('resumes.user_id', 'users.id')
+                ->whereNull('resumes.deleted_at')
+                ->selectRaw('COALESCE(AVG(resumes.completion_score), 0)'), 'resume_score')
+            ->selectSub(fn ($query) => $query->from('ats_reports')
+                ->whereColumn('ats_reports.user_id', 'users.id')
+                ->orderByDesc('ats_reports.scanned_at')
+                ->limit(1)
+                ->select('ats_reports.ats_score'), 'ats_score')
+            ->selectSub(fn ($query) => $query->from('ai_histories')
+                ->whereColumn('ai_histories.user_id', 'users.id')
+                ->selectRaw('COUNT(*)'), 'ai_rewrites')
+            ->selectSub(fn ($query) => $query->from('resume_shares')
+                ->join('resumes as shared_resumes', 'shared_resumes.id', '=', 'resume_shares.resume_id')
+                ->whereColumn('shared_resumes.user_id', 'users.id')
+                ->whereNull('shared_resumes.deleted_at')
+                ->selectRaw('COUNT(*)'), 'recruiter_opens')
+            ->first();
 
         return view('dashboard.index', [
             'resumes' => $resumes,
             'stats' => [
-                'resume_score' => (int) round($user->resumes()->avg('completion_score') ?: 0),
-                'ats_score' => (int) round($latestReport ?: 0),
-                'ai_rewrites' => AiHistory::query()->where('user_id', $user->id)->count(),
-                'recruiter_opens' => ResumeShare::query()
-                    ->whereIn('resume_id', $user->resumes()->select('id'))
-                    ->count(),
+                'resume_score' => (int) round($dashboardStats->resume_score ?? 0),
+                'ats_score' => (int) round($dashboardStats->ats_score ?? 0),
+                'ai_rewrites' => (int) ($dashboardStats->ai_rewrites ?? 0),
+                'recruiter_opens' => (int) ($dashboardStats->recruiter_opens ?? 0),
             ],
         ]);
     }

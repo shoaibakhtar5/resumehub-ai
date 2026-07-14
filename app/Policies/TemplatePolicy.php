@@ -9,7 +9,7 @@ class TemplatePolicy
 {
     public function viewAny(User $user): bool
     {
-        return true;
+        return $user->is_admin || $user->hasPermission('templates.update');
     }
 
     public function view(User $user, Template $template): bool
@@ -35,5 +35,10 @@ class TemplatePolicy
     public function apply(User $user, Template $template): bool
     {
         return $this->view($user, $template);
+    }
+
+    public function duplicate(User $user, Template $template): bool
+    {
+        return $this->create($user);
     }
 }

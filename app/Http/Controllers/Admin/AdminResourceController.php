@@ -194,7 +194,7 @@ class AdminResourceController extends Controller
 
     private function definition(string $resource): array
     {
-        abort_if(in_array($resource, ['users', 'roles', 'permissions'], true), 404);
+        abort_if(in_array($resource, ['users', 'roles', 'permissions', 'templates'], true), 404);
 
         $definition = $this->resourceService->definition($resource);
         abort_unless($definition, 404);

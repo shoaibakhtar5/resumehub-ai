@@ -1,0 +1,33 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <style>
+        *{box-sizing:border-box}html,body{margin:0;min-height:100%;background:#fff;color:#172033;font-family:Inter,Arial,sans-serif}body{font-size:11px;line-height:1.48;overflow-wrap:anywhere}.rh-page{width:100%;min-height:100%;display:grid;grid-template-columns:31% 69%;background:#fff}.rh-sidebar{padding:34px 25px;background:linear-gradient(165deg,{{ theme_color }},#12233d);color:#fff}.rh-main{padding:36px 34px}.rh-photo{display:block;width:92px;height:92px;margin:0 auto 24px;border-radius:50%;object-fit:cover;border:4px solid rgba(255,255,255,.8)}.rh-initial{display:flex;width:92px;height:92px;margin:0 auto 24px;align-items:center;justify-content:center;border:4px solid rgba(255,255,255,.75);border-radius:50%;font-size:32px;font-weight:800}.rh-sidebar h1{margin:0;text-align:center;font-size:25px;line-height:1.1;overflow-wrap:anywhere}.rh-role{margin:8px 0 25px;text-align:center;color:rgba(255,255,255,.82);font-size:12px}.rh-contact{display:grid;gap:8px;padding-top:20px;border-top:1px solid rgba(255,255,255,.25)}.rh-contact span{display:block}.rh-main>.rh-section:first-child{margin-top:0}.rh-section{margin:0 0 22px;break-inside:avoid}.rh-section h2{margin:0 0 11px;padding-bottom:6px;border-bottom:2px solid {{ theme_color }};color:#1d2a40;font-size:12px;line-height:1.2;letter-spacing:.08em;text-transform:uppercase}.rh-section p{margin:0;color:#3f4a5d}.rh-item{margin-bottom:14px;break-inside:avoid}.rh-item:last-child{margin-bottom:0}.rh-item-head{display:flex;align-items:flex-start;justify-content:space-between;gap:16px}.rh-item strong{display:block;color:#172033;font-size:11.5px}.rh-item time{flex:0 0 auto;color:#687386;font-size:9px}.rh-meta{margin:2px 0 5px;color:{{ theme_color }};font-weight:600}.rh-item p{margin-top:5px}.rh-tag{display:inline-flex;flex-direction:column;margin:0 5px 6px 0;padding:5px 8px;border-radius:5px;background:#f0f3f8;color:#26334a;font-weight:600}.rh-tag small{color:#6d7788;font-size:8px;font-weight:400}@page{size:A4;margin:0}@media(max-width:620px){.rh-page{grid-template-columns:34% 66%}.rh-sidebar{padding:24px 15px}.rh-main{padding:26px 20px}.rh-sidebar h1{font-size:20px}}
+    </style>
+</head>
+<body>
+<main class="rh-page">
+    <aside class="rh-sidebar">
+        {{ photo }}
+        <h1 class="resume-preview-name">{{ full_name }}</h1>
+        <div class="rh-role">{{ job_title }}</div>
+        <div class="rh-contact">
+            <span>{{ email }}</span><span>{{ phone }}</span><span>{{ location }}</span><span>{{ website }}</span>
+        </div>
+        {{ skills }}
+        {{ languages }}
+        {{ social_links }}
+    </aside>
+    <div class="rh-main">
+        {{ summary }}
+        {{ experiences }}
+        {{ projects }}
+        {{ education }}
+        {{ certifications }}
+        {{ awards }}
+        {{ references }}
+    </div>
+</main>
+</body>
+</html>

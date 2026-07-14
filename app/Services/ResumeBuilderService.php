@@ -20,27 +20,26 @@ class ResumeBuilderService
 
     public function buildPayload(array $data): array
     {
-        return [
+        $payload = [
             'title' => $data['title'] ?? 'Untitled Resume',
             'target_role' => $data['target_role'] ?? null,
             'target_company' => $data['target_company'] ?? null,
             'template_id' => $data['template_id'] ?? null,
             'source' => $data['source'] ?? 'builder',
-            'summary' => $data['summary'] ?? null,
-            'skills' => $data['skills'] ?? [],
-            'theme' => $data['theme'] ?? [],
-            'profile' => $data['profile'] ?? [],
-            'social_links' => $data['social_links'] ?? [],
-            'experiences' => $data['experiences'] ?? [],
-            'educations' => $data['educations'] ?? [],
-            'projects' => $data['projects'] ?? [],
-            'languages' => $data['languages'] ?? [],
-            'certifications' => $data['certifications'] ?? [],
-            'awards' => $data['awards'] ?? [],
-            'references' => $data['references'] ?? [],
-            'custom_sections' => $data['custom_sections'] ?? [],
-            'sections' => $data['sections'] ?? [],
             'import' => $data['import'] ?? null,
         ];
+
+        $presentCollections = $data['present_collections'] ?? [];
+
+        foreach ([
+            'profile', 'summary', 'theme', 'social_links', 'experiences', 'educations', 'projects', 'skills', 'languages',
+            'certifications', 'awards', 'references', 'custom_sections', 'sections',
+        ] as $collection) {
+            if (array_key_exists($collection, $data) || in_array($collection, $presentCollections, true)) {
+                $payload[$collection] = $data[$collection] ?? [];
+            }
+        }
+
+        return $payload;
     }
 }

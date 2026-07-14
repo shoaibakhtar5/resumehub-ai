@@ -198,12 +198,19 @@
                     @endforeach
                 </nav>
 
-                <form id="resume-builder-form" class="resume-builder-form" method="POST" enctype="multipart/form-data" action="{{ $resume ? route('resumes.update', $resume) : route('resumes.store') }}" novalidate x-on:input.debounce.300ms="queueAutosave()" x-on:change.debounce.300ms="queueAutosave()">
+                <form id="resume-builder-form" class="resume-builder-form" method="POST" enctype="multipart/form-data" action="{{ $resume ? route('resumes.update', $resume) : route('resumes.store') }}" novalidate x-on:input.debounce.400ms="queueAutosave()">
                     @csrf
                     @if ($resume) @method('PATCH') @endif
 
                     <input type="hidden" name="title" x-model="title">
                     <input type="hidden" name="target_company" x-model="target_company">
+                    @foreach (['social_links', 'experiences', 'educations', 'projects', 'skills', 'languages', 'sections'] as $collection)
+                        <input type="hidden" name="present_collections[]" value="{{ $collection }}">
+                    @endforeach
+                    <input type="hidden" name="theme[accent_color]" x-model="theme.accent_color">
+                    <input type="hidden" name="theme[font_pairing]" x-model="theme.font_pairing">
+                    <input type="hidden" name="theme[density]" x-model="theme.density">
+                    <input type="hidden" name="theme[page_size]" x-model="theme.page_size">
                     @foreach ($sections as $index => $section)
                         <input type="hidden" name="sections[{{ $index }}][section_key]" value="{{ $section['section_key'] }}">
                         <input type="hidden" name="sections[{{ $index }}][title]" value="{{ $section['title'] }}">
@@ -238,7 +245,7 @@
                                     <div><label class="rh-label mb-2">Email</label><input class="rh-input" name="profile[email]" type="email" x-model="profile.email"></div>
                                     <div><label class="rh-label mb-2">Phone</label><input class="rh-input" name="profile[phone]" type="text" x-model="profile.phone"></div>
                                     <div><label class="rh-label mb-2">Location</label><input class="rh-input" name="profile[location]" type="text" x-model="profile.location"></div>
-                                    <div><label class="rh-label mb-2">LinkedIn</label><input class="rh-input" :name="`social_links[0][url]`" type="url" x-model="social_links[0].url"><input type="hidden" name="social_links[0][platform]" value="linkedin"><input type="hidden" name="social_links[0][label]" value="LinkedIn"><input type="hidden" name="social_links[0][is_visible]" value="1"><input type="hidden" name="social_links[0][sort_order]" value="0"></div>
+                                    <div><label class="rh-label mb-2">LinkedIn</label><input type="hidden" name="social_links[0][id]" x-model="social_links[0].id"><input class="rh-input" :name="`social_links[0][url]`" type="url" x-model="social_links[0].url"><input type="hidden" name="social_links[0][platform]" value="linkedin"><input type="hidden" name="social_links[0][label]" value="LinkedIn"><input type="hidden" name="social_links[0][is_visible]" value="1"><input type="hidden" name="social_links[0][sort_order]" value="0"></div>
                                     <div><label class="rh-label mb-2">Website</label><input class="rh-input" name="profile[website]" type="url" x-model="profile.website"></div>
                                     <div class="sm:col-span-2"><label class="rh-label mb-2">Professional Headline</label><input class="rh-input" name="profile[headline]" type="text" x-model="profile.headline"></div>
                                 </div>
@@ -249,7 +256,7 @@
                             <template x-for="(item, index) in educations" :key="index">
                                 <article class="rounded-lg border border-border-light bg-surface-container-low p-5">
                                     <div class="grid gap-4 sm:grid-cols-2">
-                                        <input type="hidden" :name="`educations[${index}][sort_order]`" x-model="item.sort_order"><input type="hidden" :name="`educations[${index}][is_visible]`" value="1">
+                                        <input type="hidden" :name="`educations[${index}][id]`" x-model="item.id"><input type="hidden" :name="`educations[${index}][sort_order]`" x-model="item.sort_order"><input type="hidden" :name="`educations[${index}][is_visible]`" value="1">
                                         <div><label class="rh-label mb-2">Institution</label><input class="rh-input" :name="`educations[${index}][institution]`" x-model="item.institution"></div>
                                         <div><label class="rh-label mb-2">Degree</label><input class="rh-input" :name="`educations[${index}][degree]`" x-model="item.degree"></div>
                                         <div><label class="rh-label mb-2">Field of Study</label><input class="rh-input" :name="`educations[${index}][field_of_study]`" x-model="item.field_of_study"></div>
@@ -268,7 +275,7 @@
                             <template x-for="(item, index) in experiences" :key="index">
                                 <article class="rounded-lg border border-border-light bg-surface-container-low p-5">
                                     <div class="grid gap-4 sm:grid-cols-2">
-                                        <input type="hidden" :name="`experiences[${index}][sort_order]`" x-model="item.sort_order"><input type="hidden" :name="`experiences[${index}][is_visible]`" value="1">
+                                        <input type="hidden" :name="`experiences[${index}][id]`" x-model="item.id"><input type="hidden" :name="`experiences[${index}][sort_order]`" x-model="item.sort_order"><input type="hidden" :name="`experiences[${index}][is_visible]`" value="1">
                                         <div><label class="rh-label mb-2">Company</label><input class="rh-input" :name="`experiences[${index}][company]`" x-model="item.company"></div>
                                         <div><label class="rh-label mb-2">Position</label><input class="rh-input" :name="`experiences[${index}][position]`" x-model="item.position"></div>
                                         <div><label class="rh-label mb-2">Employment Type</label><input class="rh-input" :name="`experiences[${index}][employment_type]`" x-model="item.employment_type"></div>
@@ -301,7 +308,7 @@
                             <template x-for="(item, index) in projects" :key="index">
                                 <article class="rounded-lg border border-border-light bg-surface-container-low p-5">
                                     <div class="grid gap-4 sm:grid-cols-2">
-                                        <input type="hidden" :name="`projects[${index}][sort_order]`" x-model="item.sort_order"><input type="hidden" :name="`projects[${index}][is_visible]`" value="1">
+                                        <input type="hidden" :name="`projects[${index}][id]`" x-model="item.id"><input type="hidden" :name="`projects[${index}][sort_order]`" x-model="item.sort_order"><input type="hidden" :name="`projects[${index}][is_visible]`" value="1">
                                         <div><label class="rh-label mb-2">Project Name</label><input class="rh-input" :name="`projects[${index}][name]`" x-model="item.name"></div>
                                         <div><label class="rh-label mb-2">Role</label><input class="rh-input" :name="`projects[${index}][role]`" x-model="item.role"></div>
                                         <div><label class="rh-label mb-2">Project URL</label><input class="rh-input" type="url" :name="`projects[${index}][url]`" x-model="item.url"></div>

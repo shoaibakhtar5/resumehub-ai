@@ -4,6 +4,7 @@ namespace App\Services;
 
 use App\Models\Language;
 use App\Models\Resume;
+use App\Models\ResumeSection;
 use App\Models\ResumeShare;
 use App\Models\ResumeVersion;
 use App\Models\Skill;
@@ -38,22 +39,22 @@ class ResumeService
             ]);
 
             $this->syncContent($resume, $data);
-            $this->persistDerivedFields($resume);
+            $resume = $this->persistDerivedFields($resume);
             $this->versions->create($resume, $user, 'created', 'Initial draft');
 
-            return $this->freshResume($resume);
+            return $resume;
         });
     }
 
     public function update(Resume $resume, User $user, array $data, string $reason = 'manual'): Resume
     {
         return DB::transaction(function () use ($resume, $user, $data, $reason): Resume {
-            $data = $this->withDefaultSections($data);
-
             $resume->fill([
                 'template_id' => $data['template_id'] ?? $resume->template_id,
                 'title' => $data['title'] ?? $resume->title,
-                'slug' => isset($data['title']) ? $this->uniqueSlug($resume->user, $data['title'], $resume->id) : $resume->slug,
+                'slug' => isset($data['title']) && $data['title'] !== $resume->title
+                    ? $this->uniqueSlug($resume->user, $data['title'], $resume->id)
+                    : $resume->slug,
                 'target_role' => $data['target_role'] ?? null,
                 'target_company' => $data['target_company'] ?? null,
                 'language' => $data['language'] ?? $resume->language,
@@ -66,10 +67,13 @@ class ResumeService
 
             $resume->save();
             $this->syncContent($resume, $data);
-            $this->persistDerivedFields($resume);
-            $this->versions->create($resume, $user, $reason, Str::headline($reason));
+            $resume = $this->persistDerivedFields($resume);
 
-            return $this->freshResume($resume);
+            if ($reason !== 'autosave') {
+                $this->versions->create($resume, $user, $reason, Str::headline($reason));
+            }
+
+            return $resume;
         });
     }
 
@@ -100,10 +104,10 @@ class ResumeService
             $this->copyCustomSections($resume, $copy);
             $this->copyTaxonomy($resume, $copy, 'skills', ['category', 'proficiency', 'years_experience', 'is_visible', 'sort_order']);
             $this->copyTaxonomy($resume, $copy, 'languages', ['proficiency', 'is_visible', 'sort_order']);
-            $this->persistDerivedFields($copy);
+            $copy = $this->persistDerivedFields($copy);
             $this->versions->create($copy, $user, 'duplicated', 'Copied from '.$resume->title);
 
-            return $this->freshResume($copy);
+            return $copy;
         });
     }
 
@@ -257,8 +261,13 @@ class ResumeService
 
     private function syncContent(Resume $resume, array $data): void
     {
-        $this->syncProfile($resume, $data['profile'] ?? []);
-        $this->syncSummary($resume, $data['summary'] ?? null);
+        if (array_key_exists('profile', $data)) {
+            $this->syncProfile($resume, $data['profile'] ?? []);
+        }
+
+        if (array_key_exists('summary', $data)) {
+            $this->syncSummary($resume, $data['summary'] ?? null);
+        }
 
         if (array_key_exists('social_links', $data)) {
             $this->syncSocialLinks($resume, $data['social_links'] ?? []);
@@ -300,19 +309,27 @@ class ResumeService
             $this->syncCustomSections($resume, $data['custom_sections'] ?? []);
         }
 
-        $this->syncSections($resume, $data['sections'] ?? $this->defaultSections());
+        if (array_key_exists('sections', $data)) {
+            $this->syncSections($resume, $data['sections'] ?? []);
+        }
     }
 
     private function syncProfile(Resume $resume, array $profile): void
     {
-        $profileData = array_filter($profile, fn ($value) => filled($value));
-        $profileMetadata = $profileData['metadata'] ?? null;
-        unset($profileData['metadata']);
+        $profileData = collect(Arr::only($profile, [
+            'full_name', 'headline', 'email', 'phone', 'website', 'location',
+            'city', 'state', 'country', 'postal_code',
+        ]))->map(fn ($value) => filled($value) ? $value : null)->all();
 
-        $resume->profile()->updateOrCreate(['resume_id' => $resume->id], [
-            ...$profileData,
-            'metadata' => $profileMetadata ?? [],
-        ]);
+        if (filled($profile['photo_path'] ?? null)) {
+            $profileData['photo_path'] = $profile['photo_path'];
+        }
+
+        if (array_key_exists('metadata', $profile)) {
+            $profileData['metadata'] = $profile['metadata'] ?? [];
+        }
+
+        $resume->profile()->updateOrCreate(['resume_id' => $resume->id], $profileData);
     }
 
     private function syncSummary(Resume $resume, ?string $summary): void
@@ -521,24 +538,31 @@ class ResumeService
             $orderedSections = collect($this->defaultSections());
         }
 
-        foreach ($orderedSections as $index => $section) {
-            $resume->sections()->updateOrCreate(
-                ['resume_id' => $resume->id, 'section_key' => $section['section_key']],
-                [
-                    'title' => $section['title'] ?? Str::of($section['section_key'])->replace('_', ' ')->replace('-', ' ')->title()->value(),
-                    'is_visible' => $this->bool($section['is_visible'] ?? true),
-                    'sort_order' => (int) ($section['sort_order'] ?? $index),
-                    'settings' => $section['settings'] ?? [],
-                ]
-            );
-        }
+        $now = now();
+        $rows = $orderedSections->map(fn (array $section, int $index): array => [
+            'resume_id' => $resume->id,
+            'section_key' => $section['section_key'],
+            'title' => $section['title'] ?? Str::of($section['section_key'])->replace('_', ' ')->replace('-', ' ')->title()->value(),
+            'is_visible' => $this->bool($section['is_visible'] ?? true),
+            'sort_order' => (int) ($section['sort_order'] ?? $index),
+            'settings' => json_encode($section['settings'] ?? []),
+            'created_at' => $now,
+            'updated_at' => $now,
+        ])->all();
+
+        ResumeSection::query()->upsert(
+            $rows,
+            ['resume_id', 'section_key'],
+            ['title', 'is_visible', 'sort_order', 'settings', 'updated_at'],
+        );
 
         $resume->sections()->whereNotIn('section_key', $orderedSections->pluck('section_key')->all())->delete();
     }
 
     private function syncRows(Resume $resume, string $relation, array $items, callable $shouldPersist, callable $map): void
     {
-        $resume->{$relation}()->delete();
+        $existing = $resume->{$relation}()->get()->keyBy('id');
+        $retainedIds = [];
 
         foreach (array_values($items) as $index => $item) {
             $item = is_array($item) ? $item : [];
@@ -547,25 +571,54 @@ class ResumeService
                 continue;
             }
 
-            $resume->{$relation}()->create($map($item, $index));
+            $attributes = $map($item, $index);
+            $id = isset($item['id']) ? (int) $item['id'] : null;
+            $model = $id ? $existing->get($id) : null;
+
+            if ($model) {
+                $model->fill($attributes);
+                if ($model->isDirty()) {
+                    $model->save();
+                }
+                $retainedIds[] = $model->getKey();
+            } else {
+                $retainedIds[] = $resume->{$relation}()->create($attributes)->getKey();
+            }
+        }
+
+        $staleIds = $existing->keys()->diff($retainedIds);
+        if ($staleIds->isNotEmpty()) {
+            $resume->{$relation}()->whereKey($staleIds->all())->delete();
         }
     }
 
     private function settingsFromData(array $data): array
     {
-        $sections = $this->normalizeSections($data['sections'] ?? $this->defaultSections());
+        $settings = [];
 
-        return [
-            'summary' => $data['summary'] ?? null,
-            'skills' => collect($this->skillRows($data['skills'] ?? []))->pluck('name')->values()->all(),
-            'languages' => collect($this->languageRows($data['languages'] ?? []))->pluck('name')->values()->all(),
-            'sections' => $sections,
-            'theme' => $this->theme($data['theme'] ?? []),
-            'import' => $data['import'] ?? null,
-        ];
+        if (array_key_exists('summary', $data)) {
+            $settings['summary'] = $data['summary'];
+        }
+        if (array_key_exists('skills', $data)) {
+            $settings['skills'] = collect($this->skillRows($data['skills'] ?? []))->pluck('name')->values()->all();
+        }
+        if (array_key_exists('languages', $data)) {
+            $settings['languages'] = collect($this->languageRows($data['languages'] ?? []))->pluck('name')->values()->all();
+        }
+        if (array_key_exists('sections', $data)) {
+            $settings['sections'] = $this->normalizeSections($data['sections'] ?? []);
+        }
+        if (array_key_exists('theme', $data)) {
+            $settings['theme'] = $this->theme($data['theme'] ?? []);
+        }
+        if (array_key_exists('import', $data)) {
+            $settings['import'] = $data['import'];
+        }
+
+        return $settings;
     }
 
-    private function persistDerivedFields(Resume $resume): void
+    private function persistDerivedFields(Resume $resume): Resume
     {
         $resume = $this->freshResume($resume);
 
@@ -573,6 +626,8 @@ class ResumeService
             'completion_score' => $this->completionScore($resume),
             'search_text' => $this->plainText($resume),
         ])->save();
+
+        return $resume;
     }
 
     private function completionScore(Resume $resume): int

@@ -16,12 +16,14 @@ class ResumeStoreRequest extends FormRequest
 
     protected function prepareForValidation(): void
     {
-        $profile = $this->input('profile', []);
-        $socialLinks = $this->input('social_links', []);
-        $projects = $this->input('projects', []);
+        $normalized = [];
+        $profile = $this->input('profile');
+        $socialLinks = $this->input('social_links');
+        $projects = $this->input('projects');
 
         if (is_array($profile)) {
             $profile['website'] = $this->normalizeUrl($profile['website'] ?? null);
+            $normalized['profile'] = $profile;
         }
 
         if (is_array($socialLinks)) {
@@ -32,6 +34,7 @@ class ResumeStoreRequest extends FormRequest
 
                 return $link;
             }, $socialLinks);
+            $normalized['social_links'] = $socialLinks;
         }
 
         if (is_array($projects)) {
@@ -43,13 +46,10 @@ class ResumeStoreRequest extends FormRequest
 
                 return $project;
             }, $projects);
+            $normalized['projects'] = $projects;
         }
 
-        $this->merge([
-            'profile' => $profile,
-            'social_links' => $socialLinks,
-            'projects' => $projects,
-        ]);
+        $this->merge($normalized);
     }
 
     private function normalizeUrl(mixed $value): mixed
@@ -76,6 +76,8 @@ class ResumeStoreRequest extends FormRequest
             'language' => ['nullable', 'string', 'max:10'],
             'template_id' => ['nullable', Rule::exists(Template::class, 'id')],
             'summary' => ['nullable', 'string', 'max:3000'],
+            'present_collections' => ['nullable', 'array'],
+            'present_collections.*' => ['string', Rule::in(['social_links', 'experiences', 'educations', 'projects', 'skills', 'languages', 'sections'])],
             'skills' => ['nullable'],
             'skills.*.name' => ['nullable', 'string', 'max:120'],
             'skills.*.category' => ['nullable', 'string', 'max:120'],
@@ -102,6 +104,7 @@ class ResumeStoreRequest extends FormRequest
             'profile.metadata' => ['nullable', 'array'],
             'profile_photo' => ['nullable', 'image', 'mimes:jpg,jpeg,png,webp', 'max:2048'],
             'social_links' => ['nullable', 'array'],
+            'social_links.*.id' => ['nullable', 'integer'],
             'social_links.*.platform' => ['nullable', 'string', 'max:80'],
             'social_links.*.label' => ['nullable', 'string', 'max:255'],
             'social_links.*.url' => ['nullable', 'url', 'max:2048'],
@@ -114,6 +117,7 @@ class ResumeStoreRequest extends FormRequest
             'sections.*.sort_order' => ['nullable', 'integer', 'min:0'],
             'sections.*.settings' => ['nullable', 'array'],
             'experiences' => ['nullable', 'array'],
+            'experiences.*.id' => ['nullable', 'integer'],
             'experiences.*.company' => ['nullable', 'string', 'max:255'],
             'experiences.*.position' => ['nullable', 'string', 'max:255'],
             'experiences.*.employment_type' => ['nullable', 'string', 'max:80'],
@@ -126,6 +130,7 @@ class ResumeStoreRequest extends FormRequest
             'experiences.*.is_visible' => ['nullable', 'boolean'],
             'experiences.*.sort_order' => ['nullable', 'integer', 'min:0'],
             'educations' => ['nullable', 'array'],
+            'educations.*.id' => ['nullable', 'integer'],
             'educations.*.institution' => ['nullable', 'string', 'max:255'],
             'educations.*.degree' => ['nullable', 'string', 'max:255'],
             'educations.*.field_of_study' => ['nullable', 'string', 'max:255'],
@@ -138,6 +143,7 @@ class ResumeStoreRequest extends FormRequest
             'educations.*.is_visible' => ['nullable', 'boolean'],
             'educations.*.sort_order' => ['nullable', 'integer', 'min:0'],
             'projects' => ['nullable', 'array'],
+            'projects.*.id' => ['nullable', 'integer'],
             'projects.*.name' => ['nullable', 'string', 'max:255'],
             'projects.*.role' => ['nullable', 'string', 'max:255'],
             'projects.*.url' => ['nullable', 'url', 'max:2048'],
@@ -156,6 +162,7 @@ class ResumeStoreRequest extends FormRequest
             'languages.*.is_visible' => ['nullable', 'boolean'],
             'languages.*.sort_order' => ['nullable', 'integer', 'min:0'],
             'certifications' => ['nullable', 'array'],
+            'certifications.*.id' => ['nullable', 'integer'],
             'certifications.*.name' => ['nullable', 'string', 'max:255'],
             'certifications.*.issuer' => ['nullable', 'string', 'max:255'],
             'certifications.*.issued_at' => ['nullable', 'date'],
@@ -166,6 +173,7 @@ class ResumeStoreRequest extends FormRequest
             'certifications.*.is_visible' => ['nullable', 'boolean'],
             'certifications.*.sort_order' => ['nullable', 'integer', 'min:0'],
             'awards' => ['nullable', 'array'],
+            'awards.*.id' => ['nullable', 'integer'],
             'awards.*.title' => ['nullable', 'string', 'max:255'],
             'awards.*.issuer' => ['nullable', 'string', 'max:255'],
             'awards.*.awarded_at' => ['nullable', 'date'],
@@ -173,6 +181,7 @@ class ResumeStoreRequest extends FormRequest
             'awards.*.is_visible' => ['nullable', 'boolean'],
             'awards.*.sort_order' => ['nullable', 'integer', 'min:0'],
             'references' => ['nullable', 'array'],
+            'references.*.id' => ['nullable', 'integer'],
             'references.*.name' => ['nullable', 'string', 'max:255'],
             'references.*.title' => ['nullable', 'string', 'max:255'],
             'references.*.company' => ['nullable', 'string', 'max:255'],
