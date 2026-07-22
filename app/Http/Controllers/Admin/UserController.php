@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\Admin\StoreUserRequest;
 use App\Http\Requests\Admin\UpdateUserRequest;
 use App\Models\Role;
+use App\Models\Media;
 use App\Models\User;
 use App\Services\MediaService;
 use Illuminate\Database\Eloquent\Builder;
@@ -14,6 +15,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Arr;
 use Illuminate\Support\Facades\DB;
 use Illuminate\View\View;
+use Throwable;
 
 class UserController extends Controller
 {
@@ -57,14 +59,22 @@ class UserController extends Controller
 
     public function store(StoreUserRequest $request, MediaService $media): RedirectResponse
     {
-        $user = DB::transaction(function () use ($request, $media): User {
-            $data = Arr::except($request->validated(), ['profile_photo', 'role_ids', 'password_confirmation']);
-            $user = User::query()->create($data);
-            $this->storePhoto($request, $user, $media);
-            $this->syncRoles($user, $request->input('role_ids', []), $request->user());
+        $storedPhoto = null;
+        try {
+            $user = DB::transaction(function () use ($request, $media, &$storedPhoto): User {
+                $data = Arr::except($request->validated(), ['profile_photo', 'role_ids', 'password_confirmation']);
+                $user = User::query()->create($data);
+                $storedPhoto = $this->storePhoto($request, $user, $media);
+                $this->syncRoles($user, $request->input('role_ids', []), $request->user());
 
-            return $user;
-        });
+                return $user;
+            });
+        } catch (Throwable $exception) {
+            if ($storedPhoto instanceof Media) {
+                $media->discard($storedPhoto);
+            }
+            throw $exception;
+        }
 
         return redirect()->route('admin.users.show', $user)->with('status', 'User created successfully.');
     }
@@ -87,18 +97,26 @@ class UserController extends Controller
 
     public function update(UpdateUserRequest $request, User $user, MediaService $media): RedirectResponse
     {
-        DB::transaction(function () use ($request, $user, $media): void {
-            $data = Arr::except($request->validated(), ['profile_photo', 'role_ids', 'password_confirmation']);
-            if (blank($data['password'] ?? null)) {
-                unset($data['password']);
+        $storedPhoto = null;
+        try {
+            DB::transaction(function () use ($request, $user, $media, &$storedPhoto): void {
+                $data = Arr::except($request->validated(), ['profile_photo', 'role_ids', 'password_confirmation']);
+                if (blank($data['password'] ?? null)) {
+                    unset($data['password']);
+                }
+                if (isset($data['email']) && $data['email'] !== $user->email) {
+                    $data['email_verified_at'] = null;
+                }
+                $user->update($data);
+                $storedPhoto = $this->storePhoto($request, $user, $media);
+                $this->syncRoles($user, $request->input('role_ids', []), $request->user());
+            });
+        } catch (Throwable $exception) {
+            if ($storedPhoto instanceof Media) {
+                $media->discard($storedPhoto);
             }
-            if (isset($data['email']) && $data['email'] !== $user->email) {
-                $data['email_verified_at'] = null;
-            }
-            $user->update($data);
-            $this->storePhoto($request, $user, $media);
-            $this->syncRoles($user, $request->input('role_ids', []), $request->user());
-        });
+            throw $exception;
+        }
 
         return redirect()->route('admin.users.show', $user)->with('status', 'User updated successfully.');
     }
@@ -125,15 +143,18 @@ class UserController extends Controller
         $user->roles()->sync($assignments);
     }
 
-    private function storePhoto(Request $request, User $user, MediaService $media): void
+    private function storePhoto(Request $request, User $user, MediaService $media): ?Media
     {
         if (! $request->hasFile('profile_photo')) {
-            return;
+            return null;
         }
 
         $stored = $media->store($request->file('profile_photo'), 'profile-photos', $request->user(), $user, [
             'alt_text' => $user->name.' profile image',
         ]);
-        $user->forceFill(['profile_photo_path' => $stored->metadata['url'] ?? $stored->metadata['path']])->save();
+        $path = $stored->metadata['path'] ?? null;
+        $user->forceFill(['profile_photo_path' => $path ? '/storage/'.ltrim($path, '/') : null])->save();
+
+        return $stored;
     }
 }

@@ -18,4 +18,9 @@ class AiHistory extends Model
     {
         return $this->belongsTo(User::class);
     }
+
+    public function resume(): BelongsTo
+    {
+        return $this->belongsTo(Resume::class);
+    }
 }

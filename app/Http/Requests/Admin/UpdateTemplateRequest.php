@@ -25,7 +25,7 @@ class UpdateTemplateRequest extends FormRequest
             'slug' => ['required', 'string', 'max:255', 'alpha_dash', Rule::unique('templates', 'slug')->ignore($template)],
             'template_category_id' => ['nullable', 'integer', 'exists:template_categories,id'],
             'description' => ['nullable', 'string', 'max:3000'],
-            'template_file' => ['nullable', 'file', 'max:5120'],
+            'template_file' => ['nullable', 'file', 'max:5120', 'extensions:html,htm,txt,tex'],
             'thumbnail' => ['nullable', 'image', 'mimes:jpg,jpeg,png,webp', 'max:2048'],
             'primary_color' => ['required', 'regex:/^#[0-9A-Fa-f]{6}$/'],
             'font_family' => ['required', 'string', 'max:120', 'regex:/^[A-Za-z0-9 ,\-\'\"]+$/'],
@@ -37,6 +37,12 @@ class UpdateTemplateRequest extends FormRequest
             'is_featured' => ['nullable', 'boolean'],
             'is_premium' => ['nullable', 'boolean'],
             'sort_order' => ['required', 'integer', 'min:0', 'max:9999'],
+            'template_mappings' => ['nullable', 'array'],
+            'template_mappings.*' => ['nullable', 'string', Rule::in([
+                'full_name', 'job_title', 'email', 'phone', 'website', 'location', 'photo',
+                'summary', 'experiences', 'education', 'skills', 'projects', 'certifications',
+                'languages', 'awards', 'references', 'social_links',
+            ])],
         ];
     }
 
@@ -56,5 +62,10 @@ class UpdateTemplateRequest extends FormRequest
                 }
             }
         }];
+    }
+
+    public function messages(): array
+    {
+        return ['template_file.extensions' => 'Upload an HTML (.html), TXT (.txt), or LaTeX (.tex) template file.'];
     }
 }

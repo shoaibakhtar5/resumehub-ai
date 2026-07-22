@@ -12,6 +12,7 @@ use App\Models\ResumeDownload;
 use App\Models\ResumeShare;
 use App\Models\ResumeVersion;
 use App\Models\Template;
+use App\Services\HeadlessPdfService;
 use App\Services\MediaService;
 use App\Services\PreviewService;
 use App\Services\ResumeBuilderService;
@@ -33,6 +34,7 @@ class ResumeController extends Controller
         private readonly ResumeImportService $imports,
         private readonly MediaService $media,
         private readonly TemplateRenderingService $templateRenderer,
+        private readonly HeadlessPdfService $pdfService,
     ) {}
 
     public function index(Request $request): View
@@ -119,6 +121,16 @@ class ResumeController extends Controller
             'completion_score' => $resume->completion_score,
             'photo_url' => $resume->profile?->photo_path,
         ];
+    }
+
+    public function templateTheme(Request $request, Resume $resume): array
+    {
+        $this->authorize('view', $resume);
+        $templateId = $request->integer('template_id') ?: null;
+        if (! $templateId) {
+            return ['theme' => null];
+        }
+        return ['theme' => $this->resumes->getThemeForTemplate($resume, $templateId)];
     }
 
     public function import(ResumeImportRequest $request): RedirectResponse
@@ -226,12 +238,18 @@ class ResumeController extends Controller
         if ($format === 'pdf') {
             $resume->forceFill(['last_exported_at' => now()])->save();
 
-            return Pdf::loadView('dashboard.resume-pdf', [
-                'resume' => $resume,
-                'settings' => $resume->settings ?? [],
-                'renderedHtml' => $this->templateRenderer->render($resume->template, $resume, true),
-            ])->setPaper(($resume->settings['theme']['page_size'] ?? 'a4') === 'letter' ? 'letter' : 'a4')
-                ->download(str($resume->slug ?: 'resume')->slug().'.pdf');
+            // Render single unified HTML document — EXACT same source as live preview
+            $renderedHtml = $this->templateRenderer->render($resume->template, $resume);
+            $pageSize = data_get($resume->settings, 'theme.page_size', 'a4');
+
+            // Headless Chromium rendering engine ensures Preview = Export = Print
+            $pdfBinary = $this->pdfService->renderHtmlToPdf($renderedHtml, $pageSize);
+            $filename = str($resume->slug ?: 'resume')->slug().'.pdf';
+
+            return response($pdfBinary, 200, [
+                'Content-Type' => 'application/pdf',
+                'Content-Disposition' => 'attachment; filename="'.$filename.'"',
+            ]);
         }
 
         return response($this->resumes->plainText($resume), 200, [

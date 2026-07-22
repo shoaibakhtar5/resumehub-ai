@@ -44,6 +44,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::patch('/resumes/{resume}', [ResumeController::class, 'update'])->name('resumes.update');
     Route::delete('/resumes/{resume}', [ResumeController::class, 'destroy'])->name('resumes.destroy');
     Route::post('/resumes/{resume}/autosave', [ResumeController::class, 'autosave'])->name('resumes.autosave');
+    Route::get('/resumes/{resume}/template-theme', [ResumeController::class, 'templateTheme'])->name('resumes.template-theme');
     Route::post('/resumes/{resume}/duplicate', [ResumeController::class, 'duplicate'])->name('resumes.duplicate');
     Route::post('/resumes/{resume}/favorite', [ResumeController::class, 'favorite'])->name('resumes.favorite');
     Route::post('/resumes/{resume}/archive', [ResumeController::class, 'archive'])->name('resumes.archive');
@@ -60,7 +61,8 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('/favorite-resumes', [ResumeController::class, 'library'])->defaults('page', 'favorite-resumes')->name('favorite-resumes');
     Route::get('/archived-resumes', [ResumeController::class, 'library'])->defaults('page', 'archived-resumes')->name('archived-resumes');
     Route::get('/version-history', [ResumeController::class, 'library'])->defaults('page', 'version-history')->name('version-history');
-    Route::get('/settings', [FrontendPageController::class, 'userPage'])->defaults('page', 'settings')->name('settings');
+    Route::get('/settings', [ProfileController::class, 'settings'])->name('settings');
+    Route::patch('/settings', [ProfileController::class, 'updateSettings'])->name('settings.update');
     Route::get('/notifications', [FrontendPageController::class, 'userPage'])->defaults('page', 'notifications')->name('notifications');
     Route::get('/ai-resume-studio', [AiController::class, 'studio'])->name('ai.studio');
     Route::post('/ai/generate', [AiController::class, 'generate'])->name('ai.generate');

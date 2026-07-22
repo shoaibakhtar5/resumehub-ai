@@ -510,6 +510,850 @@
     }
 }
 
+@layer components {
+    .resume-studio {
+        display: grid;
+        grid-template-columns: 268px minmax(0, 1fr) 284px;
+        grid-template-rows: 64px minmax(0, 1fr);
+        width: 100vw;
+        height: 100dvh;
+        overflow: hidden;
+        color: #172033;
+        background: #f8f9fc;
+    }
+
+    .resume-studio-topbar {
+        z-index: 30;
+        display: flex;
+        grid-column: 1 / -1;
+        grid-row: 1;
+        align-items: center;
+        min-width: 0;
+        border-bottom: 1px solid #e5e9f1;
+        background: rgb(255 255 255 / 0.96);
+        box-shadow: 0 1px 8px rgb(30 41 59 / 0.03);
+    }
+
+    .resume-studio-brand {
+        display: flex;
+        width: 268px;
+        flex: 0 0 268px;
+        align-items: center;
+        padding: 0 16px;
+    }
+
+    .resume-studio-brand > a > span:first-child {
+        width: 32px;
+        height: 32px;
+        border-radius: 8px;
+    }
+
+    .resume-studio-brand > a > span:last-child {
+        font-size: 18px;
+    }
+
+    .studio-icon-button,
+    .studio-action-button,
+    .studio-primary-button {
+        display: inline-flex;
+        min-height: 36px;
+        align-items: center;
+        justify-content: center;
+        gap: 7px;
+        border: 1px solid #e2e7ef;
+        border-radius: 8px;
+        background: #fff;
+        padding: 0 12px;
+        color: #27344a;
+        font-size: 12px;
+        font-weight: 600;
+        transition: 160ms ease;
+    }
+
+    .studio-icon-button {
+        width: 36px;
+        padding: 0;
+    }
+
+    .studio-icon-button:hover,
+    .studio-action-button:hover {
+        border-color: #cbd3df;
+        background: #f8fafc;
+        color: #3f2de0;
+    }
+
+    .studio-icon-button:disabled,
+    .studio-ai-button:disabled {
+        cursor: not-allowed;
+        opacity: 0.38;
+    }
+
+    .studio-primary-button {
+        border-color: #4933e5;
+        background: linear-gradient(135deg, #5c42ef, #3927ce);
+        color: #fff;
+        box-shadow: 0 8px 18px rgb(67 45 215 / 0.18);
+    }
+
+    .resume-studio-left,
+    .resume-studio-right {
+        display: flex;
+        min-width: 0;
+        min-height: 0;
+        flex-direction: column;
+        background: #fff;
+    }
+
+    .resume-studio-left {
+        grid-column: 1;
+        grid-row: 2;
+        border-right: 1px solid #e5e9f1;
+    }
+
+    .resume-studio-right {
+        grid-column: 3;
+        grid-row: 2;
+        border-left: 1px solid #e5e9f1;
+    }
+
+    .studio-tabs {
+        display: grid;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        min-height: 56px;
+        flex: 0 0 56px;
+        border-bottom: 1px solid #e7ebf2;
+        padding: 0 8px;
+    }
+
+    .studio-tabs button {
+        position: relative;
+        color: #5b6678;
+        font-size: 11px;
+        font-weight: 600;
+    }
+
+    .studio-tabs button.is-active {
+        color: #3e2bd6;
+    }
+
+    .studio-tabs button.is-active::after {
+        position: absolute;
+        right: 6px;
+        bottom: -1px;
+        left: 6px;
+        height: 2px;
+        border-radius: 999px;
+        background: #4d36e2;
+        content: '';
+    }
+
+    .studio-panel-scroll {
+        min-height: 0;
+        flex: 1;
+        overflow: auto;
+        scrollbar-width: thin;
+        scrollbar-color: #cbd2de transparent;
+    }
+
+    .studio-kicker {
+        color: #52617a;
+        font-size: 10px;
+        font-weight: 700;
+        letter-spacing: 0.05em;
+        text-transform: uppercase;
+    }
+
+    .studio-element-card {
+        display: flex;
+        min-height: 72px;
+        min-width: 0;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        gap: 7px;
+        border: 1px solid #e4e8ef;
+        border-radius: 8px;
+        background: #fff;
+        padding: 8px 4px;
+        color: #28364d;
+        font-size: 9px;
+        font-weight: 600;
+        text-align: center;
+        transition: 150ms ease;
+    }
+
+    .studio-element-card:hover {
+        transform: translateY(-1px);
+        border-color: #b9adf8;
+        color: #4630dc;
+        box-shadow: 0 7px 18px rgb(51 65 85 / 0.08);
+    }
+
+    .studio-section-row {
+        display: flex;
+        min-height: 42px;
+        align-items: center;
+        gap: 8px;
+        border: 1px solid #e4e8ef;
+        border-radius: 8px;
+        background: #fff;
+        padding: 0 9px;
+        color: #455269;
+        font-size: 11px;
+        font-weight: 600;
+    }
+
+    .studio-section-row.is-active {
+        border-color: #b7aafb;
+        background: #f3f0ff;
+        color: #3e2ad2;
+    }
+
+    .studio-ai-button,
+    .studio-ai-mini {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        gap: 5px;
+        border: 1px solid #ddd7ff;
+        border-radius: 8px;
+        background: linear-gradient(135deg, #faf8ff, #f0edff);
+        padding: 9px 7px;
+        color: #4d35dc;
+        font-size: 10px;
+        font-weight: 700;
+    }
+
+    .studio-ai-mini {
+        padding: 5px 8px;
+    }
+
+    .studio-editor-fields,
+    .studio-repeaters {
+        display: grid;
+        gap: 11px;
+    }
+
+    .studio-editor-fields label,
+    .studio-repeaters label,
+    .studio-control-section label {
+        display: grid;
+        min-width: 0;
+        gap: 5px;
+        color: #526079;
+        font-size: 10px;
+        font-weight: 600;
+    }
+
+    .studio-editor-fields input,
+    .studio-editor-fields textarea,
+    .studio-editor-fields select,
+    .studio-repeaters input,
+    .studio-repeaters textarea,
+    .studio-repeaters select,
+    .studio-control-section select {
+        width: 100%;
+        min-height: 36px;
+        border: 1px solid #dfe4ec;
+        border-radius: 7px;
+        background: #fff;
+        padding: 7px 9px;
+        color: #1f2a3d;
+        font-size: 11px;
+        font-weight: 500;
+        line-height: 1.35;
+        box-shadow: 0 1px 2px rgb(15 23 42 / 0.02);
+    }
+
+    .studio-editor-fields textarea,
+    .studio-repeaters textarea {
+        resize: vertical;
+    }
+
+    .studio-editor-fields input:focus,
+    .studio-editor-fields textarea:focus,
+    .studio-repeaters input:focus,
+    .studio-repeaters textarea:focus,
+    .studio-control-section select:focus {
+        border-color: #7767ec;
+        outline: 0;
+        box-shadow: 0 0 0 3px rgb(92 66 239 / 0.1);
+    }
+
+    .studio-repeaters article {
+        display: grid;
+        gap: 9px;
+        border: 1px solid #e4e8ef;
+        border-radius: 10px;
+        background: #fafbfc;
+        padding: 11px;
+    }
+
+    .studio-date-grid {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 8px;
+        min-width: 0;
+    }
+
+    .studio-date-grid input[type='date'] {
+        min-width: 0;
+        max-width: 100%;
+        padding-inline: 6px;
+        font-size: 10px;
+    }
+
+    .studio-repeaters.compact article {
+        grid-template-columns: minmax(0, 1fr) minmax(90px, 0.7fr);
+    }
+
+    .studio-repeaters.compact article .studio-remove {
+        grid-column: 1 / -1;
+    }
+
+    .studio-remove {
+        justify-self: start;
+        color: #c53b4d;
+        font-size: 10px;
+        font-weight: 700;
+    }
+
+    .studio-add,
+    .studio-reset {
+        width: 100%;
+        min-height: 36px;
+        border: 1px dashed #aaa0ed;
+        border-radius: 8px;
+        color: #4935cf;
+        font-size: 11px;
+        font-weight: 700;
+    }
+
+    .resume-studio-canvas {
+        display: grid;
+        grid-column: 2;
+        grid-row: 2;
+        grid-template-rows: 56px minmax(0, 1fr) 52px;
+        min-width: 0;
+        min-height: 0;
+        overflow: hidden;
+        /* Premium workspace: subtle warm-neutral with dot grid pattern */
+        background-color: #eceef2;
+        background-image: radial-gradient(circle, #c8cdd8 1px, transparent 1px);
+        background-size: 24px 24px;
+    }
+
+    .studio-canvas-toolbar,
+    .studio-canvas-footer {
+        z-index: 4;
+        display: flex;
+        min-width: 0;
+        align-items: center;
+        gap: 10px;
+        border-bottom: 1px solid #e3e7ee;
+        background: rgb(255 255 255 / 0.94);
+        padding: 8px 18px;
+    }
+
+    .studio-canvas-footer {
+        justify-content: space-between;
+        border-top: 1px solid #e3e7ee;
+        border-bottom: 0;
+    }
+
+    .studio-select {
+        display: flex;
+        min-width: 130px;
+        height: 38px;
+        align-items: center;
+        gap: 7px;
+        border: 1px solid #e0e5ed;
+        border-radius: 8px;
+        background: #fff;
+        padding: 0 9px;
+        color: #56627a;
+        font-size: 10px;
+        font-weight: 600;
+    }
+
+    .studio-select.wide {
+        min-width: 280px;
+    }
+
+    .studio-select select {
+        min-width: 0;
+        flex: 1;
+        border: 0;
+        background: transparent;
+        padding: 0;
+        color: #202b3e;
+        font-size: 11px;
+        font-weight: 600;
+    }
+
+    .studio-toolbar-group {
+        display: flex;
+        height: 38px;
+        align-items: center;
+        border: 1px solid #e0e5ed;
+        border-radius: 8px;
+        background: #fff;
+    }
+
+    .studio-toolbar-group > * {
+        min-width: 34px;
+        padding: 0 8px;
+        font-size: 10px;
+        text-align: center;
+    }
+
+    /*
+     * ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+     * CANVAS VIEWPORT
+     * The scrollable container that holds the scaled page.
+     * Uses flex so the page is always horizontally centred.
+     * ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+     */
+    .studio-canvas-viewport {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        min-height: 0;
+        overflow: auto;
+        padding: 32px 32px 60px;
+        scrollbar-width: thin;
+        scrollbar-color: #b0b8c8 transparent;
+    }
+
+    .studio-canvas-viewport::-webkit-scrollbar {
+        width: 8px;
+        height: 8px;
+    }
+
+    .studio-canvas-viewport::-webkit-scrollbar-thumb {
+        background: #b0b8c8;
+        border-radius: 4px;
+    }
+
+    /*
+     * ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+     * PAGE STAGE WRAPPER
+     * Collapses to the *scaled* dimensions so the scrollable area
+     * reflects the actual visual size of the content, not the raw
+     * 794px layout size. JS sets the exact width/height via style.
+     * ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+     */
+    .studio-page-stage-wrapper {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        flex-shrink: 0;
+        /* JS imperatively sets width/height via element.style */
+        transition: width 150ms cubic-bezier(0.4, 0, 0.2, 1),
+                    height 150ms cubic-bezier(0.4, 0, 0.2, 1);
+    }
+
+    /*
+     * ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+     * PAGE STAGE
+     * Always 794px wide (A4 at 96 dpi).
+     * JS applies transform:scale() to visually resize it for zoom.
+     * transform-origin:top center keeps it horizontally centred.
+     * ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+     */
+    .studio-page-stage {
+        width: 794px;
+        transform-origin: top center;
+        /* JS sets transform:scale() imperatively — no CSS var needed */
+        transition: transform 120ms cubic-bezier(0.4, 0, 0.2, 1);
+    }
+
+    /*
+     * ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+     * PAGE SELECTION CONTAINER
+     * Wraps the Livewire preview. Width is fixed at 794px.
+     * overflow:visible allows the selection overlay to extend outside
+     * the page but content inside the page frame is clipped there.
+     * ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+     */
+    .studio-page-selection {
+        position: relative;
+        width: 794px;
+        overflow: visible;
+        background: transparent;
+    }
+
+    /*
+     * ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+     * THE A4 PAGE FRAME
+     * This is the white paper that the resume renders inside.
+     * Fixed 794×1123px (A4 at 96dpi). Content is CLIPPED here.
+     * Multiple frames stack for multi-page resumes.
+     *
+     * Shadow system: three layers for realism —
+     *   1. Wide ambient shadow (document on desk)
+     *   2. Focused contact shadow (bottom edge depth)
+     *   3. Subtle outline ring (paper edge)
+     * ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+     */
+    .rh-page-frame {
+        position: relative;
+        width: 794px;
+        height: 1123px;
+        overflow: hidden;
+        background: #ffffff;
+        border-radius: 2px;
+        box-shadow:
+            0 1px 3px  rgb(0 0 0 / 0.04),
+            0 4px 12px rgb(0 0 0 / 0.07),
+            0 12px 32px rgb(0 0 0 / 0.09),
+            0 24px 60px rgb(0 0 0 / 0.06),
+            0  0   0 1px rgb(0 0 0 / 0.06);
+        transition: box-shadow 200ms ease;
+    }
+
+    /* Hover: lift the page slightly */
+    .studio-page-stage-wrapper:hover .rh-page-frame {
+        box-shadow:
+            0 2px 4px  rgb(0 0 0 / 0.04),
+            0 6px 16px rgb(0 0 0 / 0.09),
+            0 16px 40px rgb(0 0 0 / 0.10),
+            0 28px 70px rgb(0 0 0 / 0.07),
+            0  0   0 1px rgb(0 0 0 / 0.07);
+    }
+
+    /* No-shadow variant (user toggled off) */
+    .studio-page-selection.without-shadow .rh-page-frame {
+        box-shadow: 0 0 0 1px rgb(100 116 139 / 0.25);
+    }
+
+    /*
+     * Page number label between pages
+     */
+    .rh-page-separator {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 10px;
+        width: 794px;
+        height: 20px;
+        flex-shrink: 0;
+        color: #8492a6;
+        font-size: 9px;
+        font-weight: 600;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+    }
+
+    .rh-page-separator::before,
+    .rh-page-separator::after {
+        content: '';
+        flex: 1;
+        height: 1px;
+        background: linear-gradient(90deg, transparent, #c6cdd9 30%, #c6cdd9 70%, transparent);
+    }
+
+    /*
+     * ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+     * LIVE PREVIEW HOST
+     * The Livewire wrapper that holds the rendered resume HTML.
+     * Must be exactly 794px wide and height:auto so JS can measure
+     * scrollHeight for page count.
+     * ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+     */
+    .studio-page-selection #resume-live-preview {
+        width: 794px;
+        height: auto;
+        overflow: visible;
+        /* Ensures internal fonts load at 96dpi equivalent */
+        font-size: 10.5px;
+    }
+
+    .studio-page-selection .resume-rendered-document,
+    .studio-page-selection .rh-embedded-template {
+        width: 100%;
+        height: auto;
+    }
+
+    /*
+     * ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+     * SELECTION OVERLAY (Canva-style blue ring)
+     * ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+     */
+    #selection-overlay {
+        pointer-events: none;
+        position: absolute;
+        border: 2px solid #3b82f6;
+        border-radius: 3px;
+        box-shadow:
+            0 0 0 1px rgba(59, 130, 246, 0.25),
+            0 0 0 4px rgba(59, 130, 246, 0.12);
+        transition: top 80ms ease, left 80ms ease, width 80ms ease, height 80ms ease;
+        z-index: 50;
+    }
+
+    /* Floating action bar above the selection */
+    #selection-overlay > div {
+        position: absolute;
+        top: -42px;
+        left: 50%;
+        transform: translateX(-50%);
+        display: flex;
+        align-items: center;
+        gap: 2px;
+        background: #1e293b;
+        border: 1px solid rgba(255,255,255,0.1);
+        border-radius: 8px;
+        padding: 4px 6px;
+        box-shadow: 0 4px 16px rgba(0,0,0,0.3);
+        white-space: nowrap;
+        pointer-events: auto;
+    }
+
+    #selection-overlay > div button {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        width: 28px;
+        height: 28px;
+        border-radius: 6px;
+        color: #94a3b8;
+        transition: background 120ms ease, color 120ms ease;
+    }
+
+    #selection-overlay > div button:hover {
+        background: rgba(255,255,255,0.1);
+        color: #f1f5f9;
+    }
+
+    #selection-overlay > div button.danger:hover {
+        background: rgba(239, 68, 68, 0.2);
+        color: #f87171;
+    }
+
+    #selection-overlay > div .ai-btn {
+        font-size: 10px;
+        font-weight: 700;
+        padding: 0 8px;
+        width: auto;
+        background: linear-gradient(135deg, #6366f1, #8b5cf6);
+        color: #fff;
+        border-radius: 6px;
+    }
+
+    /* Device emulation: tablet/mobile scale hints — still 794px base */
+    .resume-studio-canvas.is-tablet .studio-page-stage-wrapper,
+    .resume-studio-canvas.is-mobile  .studio-page-stage-wrapper {
+        /* JS already sets explicit width/height; CSS transition smooths it */
+    }
+
+    .studio-color-dot {
+        position: relative;
+        width: 30px;
+        height: 30px;
+        border: 3px solid #fff;
+        border-radius: 50%;
+        background: var(--swatch);
+        box-shadow: 0 0 0 1px #d9dee7;
+    }
+
+    .studio-color-dot.is-active {
+        box-shadow: 0 0 0 2px #4d36e2;
+    }
+
+    .studio-color-dot.add {
+        display: grid;
+        place-items: center;
+        cursor: pointer;
+        color: #58647a;
+        background: #fff;
+    }
+
+    .studio-color-dot.add input {
+        position: absolute;
+        inset: 0;
+        cursor: pointer;
+        opacity: 0;
+    }
+
+    .studio-control-section {
+        display: grid;
+        gap: 12px;
+        border-top: 1px solid #e8ebf1;
+        padding-top: 18px;
+    }
+
+    .studio-control-section label {
+        grid-template-columns: minmax(0, 1fr) 112px auto;
+        align-items: center;
+    }
+
+    .studio-control-section input[type='color'] {
+        width: 42px;
+        height: 30px;
+        justify-self: end;
+        overflow: hidden;
+        border: 1px solid #dfe4ec;
+        border-radius: 8px;
+        padding: 2px;
+        background: #fff;
+    }
+
+    .studio-control-section input[type='range'] {
+        accent-color: #4d36e2;
+    }
+
+    .studio-control-section .toggle-row {
+        display: flex;
+        justify-content: space-between;
+    }
+
+    .studio-control-section .toggle-row input {
+        width: 34px;
+        height: 18px;
+        accent-color: #4d36e2;
+    }
+
+    .resume-studio-notice {
+        position: fixed;
+        z-index: 60;
+        top: 72px;
+        left: 50%;
+        transform: translateX(-50%);
+        border: 1px solid #b8e4cf;
+        border-radius: 9px;
+        background: #edfbf4;
+        padding: 9px 14px;
+        color: #137753;
+        font-size: 11px;
+        font-weight: 600;
+        box-shadow: 0 8px 24px rgb(30 41 59 / 0.12);
+    }
+
+    .resume-studio-mobile-nav {
+        display: none;
+    }
+
+    @media (max-width: 1180px) {
+        .resume-studio {
+            grid-template-columns: 250px minmax(0, 1fr) 260px;
+        }
+
+        .resume-studio-brand {
+            width: 250px;
+            flex-basis: 250px;
+        }
+
+        .studio-select.wide {
+            min-width: 210px;
+        }
+    }
+
+    @media (max-width: 900px) {
+        .resume-studio {
+            display: block;
+            padding-top: 64px;
+        }
+
+        .resume-studio-topbar {
+            position: fixed;
+            inset: 0 0 auto;
+            height: 64px;
+        }
+
+        .resume-studio-brand {
+            width: auto;
+            flex-basis: auto;
+        }
+
+        .resume-studio-brand > a > span:last-child {
+            display: none;
+        }
+
+        .resume-studio-left,
+        .resume-studio-right,
+        .resume-studio-canvas {
+            display: none;
+            width: 100%;
+            height: calc(100dvh - 116px);
+            border: 0;
+        }
+
+        .resume-studio-left.is-mobile-active,
+        .resume-studio-right.is-mobile-active,
+        .resume-studio-canvas.is-mobile-active {
+            display: flex;
+        }
+
+        .resume-studio-canvas.is-mobile-active {
+            display: grid;
+        }
+
+        .resume-studio-mobile-nav {
+            position: fixed;
+            z-index: 40;
+            right: 0;
+            bottom: 0;
+            left: 0;
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            height: 52px;
+            border-top: 1px solid #dfe4ec;
+            background: #fff;
+        }
+
+        .resume-studio-mobile-nav button {
+            color: #647087;
+            font-size: 11px;
+            font-weight: 700;
+        }
+
+        .resume-studio-mobile-nav button.is-active {
+            color: #4933df;
+            background: #f3f0ff;
+        }
+
+        .studio-panel-scroll {
+            width: 100%;
+        }
+    }
+
+    @media (max-width: 620px) {
+        .resume-studio-topbar > div:nth-child(2) {
+            padding-right: 4px;
+            padding-left: 4px;
+        }
+
+        .resume-studio-topbar .studio-icon-button,
+        .resume-studio-topbar form {
+            display: none;
+        }
+
+        .resume-studio-topbar .studio-primary-button {
+            display: inline-flex;
+        }
+
+        .studio-canvas-toolbar {
+            padding-inline: 8px;
+        }
+
+        .studio-select.wide {
+            min-width: 180px;
+        }
+
+        .studio-select:not(.wide),
+        .studio-toolbar-group {
+            display: none;
+        }
+
+        .studio-canvas-footer {
+            padding-inline: 8px;
+        }
+
+        /* stage is always 794px; scale handles fitting to viewport */
+    }
+}
+
 @layer utilities {
     [x-cloak] {
         display: none !important;

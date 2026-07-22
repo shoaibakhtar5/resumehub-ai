@@ -72,7 +72,7 @@
 
     <div class="m-4 rounded-xl border border-white/15 bg-white/[0.04] p-3" :class="collapsed && 'lg:m-3 lg:p-2'">
         <div class="flex items-center gap-3" :class="collapsed && 'lg:justify-center'">
-            <span class="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-white font-bold text-[#102245]">{{ strtoupper(substr(auth()->user()->name, 0, 1)) }}</span>
+            <x-ui.avatar :user="auth()->user()" size="h-9 w-9" text-size="text-sm" class="ring-white/20" />
             <div x-show="!collapsed" class="min-w-0 flex-1">
                 <p class="truncate text-sm font-semibold">{{ auth()->user()->name }}</p>
                 <p class="text-xs text-slate-300">Super Admin</p>

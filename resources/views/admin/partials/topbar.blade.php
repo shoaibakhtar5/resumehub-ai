@@ -19,14 +19,13 @@
             @endif
         </a>
         <div x-data="{ open: false }" class="relative">
-            <button type="button" @click="open = !open" class="flex h-10 w-10 items-center justify-center rounded-full bg-[#e8edf7] text-sm font-bold text-[#102245] ring-2 ring-white shadow" aria-label="Admin profile menu">
-                {{ strtoupper(substr(auth()->user()->name, 0, 1)) }}
-            </button>
+            <button type="button" @click="open = !open" class="rounded-full ring-2 ring-white shadow" aria-label="Admin profile menu"><x-ui.avatar :user="auth()->user()" size="h-10 w-10" text-size="text-sm" /></button>
             <div x-cloak x-show="open" @click.outside="open = false" x-transition class="absolute right-0 mt-2 w-52 rounded-xl border border-slate-200 bg-white p-2 shadow-xl">
                 <div class="border-b border-slate-100 px-3 py-2">
                     <p class="text-sm font-semibold">{{ auth()->user()->name }}</p>
                     <p class="truncate text-xs text-slate-500">{{ auth()->user()->email }}</p>
                 </div>
+                <a href="{{ route('profile.edit') }}" class="mt-1 flex w-full items-center gap-2 rounded-lg px-3 py-2 text-sm text-slate-700 hover:bg-slate-100"><x-ui.icon name="user" class="h-4 w-4" /> My profile</a>
                 <form method="POST" action="{{ route('logout') }}" class="mt-1">
                     @csrf
                     <button class="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-sm text-slate-700 hover:bg-slate-100">

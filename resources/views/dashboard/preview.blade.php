@@ -8,7 +8,7 @@
         <div class="grid gap-5 xl:grid-cols-[minmax(0,1fr)_320px]">
             <section class="rounded-2xl border border-slate-200 bg-slate-100 p-3 shadow-sm sm:p-5">
                 <div class="mx-auto aspect-[210/297] w-full max-w-[794px] overflow-hidden bg-white shadow-xl">
-                    <iframe title="{{ $resume->title }} preview" srcdoc="{{ e($renderedHtml) }}" class="h-full w-full border-0"></iframe>
+                    <iframe id="resume-document-preview" title="{{ $resume->title }} preview" srcdoc="{{ e($renderedHtml) }}" class="h-full w-full border-0"></iframe>
                 </div>
             </section>
             <aside class="space-y-4">
@@ -19,6 +19,7 @@
                         <div class="mt-5 grid gap-2">
                             <a href="{{ route('resumes.edit',$resume) }}" class="rounded-lg bg-indigo-600 px-4 py-2.5 text-center text-sm font-semibold text-white">Continue editing</a>
                             <form method="POST" action="{{ route('resumes.download',$resume) }}">@csrf<input type="hidden" name="format" value="pdf"><button class="w-full rounded-lg border border-slate-200 px-4 py-2.5 text-sm font-semibold text-slate-700">Download PDF</button></form>
+                            <button type="button" onclick="document.getElementById('resume-document-preview').contentWindow.print()" class="w-full rounded-lg border border-slate-200 px-4 py-2.5 text-sm font-semibold text-slate-700">Print resume</button>
                         </div>
                     @endunless
                 </section>

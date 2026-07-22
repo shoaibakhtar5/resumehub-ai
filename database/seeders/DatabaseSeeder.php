@@ -69,21 +69,24 @@ class DatabaseSeeder extends Seeder
         $user->roles()->syncWithoutDetaching([$memberRole->id]);
 
         $categories = collect([
-            ['name' => 'Creative', 'description' => 'Polished visual layouts for design and marketing roles.'],
-            ['name' => 'Corporate', 'description' => 'Classic layouts for operations, finance, legal, and leadership.'],
-            ['name' => 'Technology', 'description' => 'Structured layouts for engineering, data, and product roles.'],
-        ])->mapWithKeys(fn (array $data) => [
+            ['name' => 'Modern & Professional', 'description' => 'Clean, contemporary layouts suitable for all industries and career levels.'],
+            ['name' => 'Creative & Visual', 'description' => 'Polished visual layouts for design, marketing, architecture, and media.'],
+            ['name' => 'Corporate & Executive', 'description' => 'Classic, elegant layouts for management, finance, legal, and executive leadership.'],
+            ['name' => 'Technology & Engineering', 'description' => 'Structured, technical layouts for software engineers, IT, data science, and product roles.'],
+            ['name' => 'Academic & Research', 'description' => 'Comprehensive CV layouts tailored for academia, scientific research, education, and medical.'],
+            ['name' => 'Simple & Minimalist', 'description' => 'Distraction-free, ATS-friendly minimalist layouts prioritizing high readability.'],
+        ])->mapWithKeys(fn (array $data, int $index) => [
             $data['name'] => TemplateCategory::query()->updateOrCreate(
                 ['slug' => Str::slug($data['name'])],
-                $data + ['sort_order' => 0, 'is_active' => true]
+                $data + ['sort_order' => $index, 'is_active' => true]
             ),
         ]);
 
         foreach ([
-            ['Neo-Minimalist', 'Creative', 'Best for designers and artists', true],
-            ['Executive Flow', 'Corporate', 'Best for leadership and finance', false],
-            ['Syntax Master', 'Technology', 'Best for software engineers', false],
-            ['Standard Global', 'Corporate', 'Best for legal and administrative roles', false],
+            ['Neo-Minimalist', 'Creative & Visual', 'Best for designers and artists', true],
+            ['Executive Flow', 'Corporate & Executive', 'Best for leadership and finance', false],
+            ['Syntax Master', 'Technology & Engineering', 'Best for software engineers', false],
+            ['Standard Global', 'Corporate & Executive', 'Best for legal and administrative roles', false],
         ] as $index => [$name, $category, $description, $premium]) {
             Template::query()->updateOrCreate(
                 ['slug' => Str::slug($name)],

@@ -26,7 +26,7 @@
                     @forelse ($users as $managedUser)
                         <tr class="hover:bg-slate-50/80">
                             <td class="px-4 py-3"><div class="flex items-center gap-3">
-                                @if ($managedUser->profile_photo_path)<img src="{{ $managedUser->profile_photo_path }}" alt="{{ $managedUser->name }}" class="h-10 w-10 rounded-full object-cover ring-2 ring-slate-100">@else<span class="flex h-10 w-10 items-center justify-center rounded-full bg-indigo-50 text-sm font-bold text-indigo-700">{{ strtoupper(substr($managedUser->name, 0, 1)) }}</span>@endif
+                                <x-ui.avatar :user="$managedUser" size="h-10 w-10" text-size="text-sm" class="ring-2 ring-slate-100" />
                                 <div><a href="{{ route('admin.users.show', $managedUser) }}" class="font-semibold text-slate-900 hover:text-indigo-600">{{ $managedUser->name }}</a><p class="text-xs text-slate-500">{{ $managedUser->phone ?: 'No phone' }}</p></div>
                             </div></td>
                             <td class="px-4 py-3 text-slate-600">{{ $managedUser->email }}</td>

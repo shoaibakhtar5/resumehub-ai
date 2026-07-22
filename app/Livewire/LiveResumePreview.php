@@ -5,6 +5,7 @@ namespace App\Livewire;
 use App\Models\Resume;
 use App\Models\Template;
 use App\Services\TemplateRenderingService;
+use Livewire\Attributes\On;
 use Livewire\Component;
 
 class LiveResumePreview extends Component
@@ -14,8 +15,6 @@ class LiveResumePreview extends Component
     public string $templateSlug = 'modern-professional';
     public string $templateVariant = 'modern';
     public array $templateConfig = [];
-
-    protected $listeners = ['resume-updated' => 'updatePreview'];
 
     public function mount(?Resume $resume = null): void
     {
@@ -57,8 +56,10 @@ class LiveResumePreview extends Component
         $this->syncTemplate($resume->template_id, $resume->template);
     }
 
+    #[On('resume-updated')]
     public function updatePreview(array $data): void
     {
+        \Illuminate\Support\Facades\Log::info('updatePreview hit', ['template_id' => $data['template_id'] ?? null]);
         $previousTemplateId = $this->payload['template_id'] ?? null;
         // Replace top-level collections so removed entries do not survive.
         $this->payload = array_merge($this->payload, $data);

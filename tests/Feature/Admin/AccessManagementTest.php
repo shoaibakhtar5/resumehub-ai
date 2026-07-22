@@ -45,6 +45,9 @@ class AccessManagementTest extends TestCase
 
         $managedUser = User::query()->where('email', 'taylor@example.com')->firstOrFail();
         $this->assertStringContainsString('/storage/profile-photos/', $managedUser->profile_photo_path);
+        $this->assertStringStartsWith('/storage/profile-photos/', $managedUser->profile_photo_path);
+        $this->assertSame('UTC', $managedUser->timezone);
+        $this->assertSame('en', $managedUser->locale);
         Storage::disk('public')->assertExists(Str::after($managedUser->profile_photo_path, '/storage/'));
         $this->assertDatabaseHas('role_user', [
             'user_id' => $managedUser->id,

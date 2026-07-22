@@ -21,6 +21,24 @@ class ResumeStoreRequest extends FormRequest
         $socialLinks = $this->input('social_links');
         $projects = $this->input('projects');
 
+        foreach (['social_links', 'experiences', 'educations', 'projects', 'skills', 'languages', 'certifications', 'awards', 'references', 'sections'] as $collection) {
+            $items = $this->input($collection);
+            if (! is_array($items)) {
+                continue;
+            }
+            $normalized[$collection] = array_map(function ($item): mixed {
+                if (! is_array($item)) {
+                    return $item;
+                }
+                foreach (['is_visible', 'is_current', 'available_on_request'] as $key) {
+                    if (array_key_exists($key, $item)) {
+                        $item[$key] = filter_var($item[$key], FILTER_VALIDATE_BOOL);
+                    }
+                }
+                return $item;
+            }, $items);
+        }
+
         if (is_array($profile)) {
             $profile['website'] = $this->normalizeUrl($profile['website'] ?? null);
             $normalized['profile'] = $profile;
@@ -30,6 +48,9 @@ class ResumeStoreRequest extends FormRequest
             $socialLinks = array_map(function ($link): mixed {
                 if (is_array($link)) {
                     $link['url'] = $this->normalizeUrl($link['url'] ?? null);
+                    if (array_key_exists('is_visible', $link)) {
+                        $link['is_visible'] = filter_var($link['is_visible'], FILTER_VALIDATE_BOOL);
+                    }
                 }
 
                 return $link;
@@ -42,6 +63,11 @@ class ResumeStoreRequest extends FormRequest
                 if (is_array($project)) {
                     $project['url'] = $this->normalizeUrl($project['url'] ?? null);
                     $project['repository_url'] = $this->normalizeUrl($project['repository_url'] ?? null);
+                    foreach (['is_visible', 'is_current'] as $key) {
+                        if (array_key_exists($key, $project)) {
+                            $project[$key] = filter_var($project[$key], FILTER_VALIDATE_BOOL);
+                        }
+                    }
                 }
 
                 return $project;
@@ -77,7 +103,10 @@ class ResumeStoreRequest extends FormRequest
             'template_id' => ['nullable', Rule::exists(Template::class, 'id')],
             'summary' => ['nullable', 'string', 'max:3000'],
             'present_collections' => ['nullable', 'array'],
-            'present_collections.*' => ['string', Rule::in(['social_links', 'experiences', 'educations', 'projects', 'skills', 'languages', 'sections'])],
+            'present_collections.*' => ['string', Rule::in([
+                'social_links', 'experiences', 'educations', 'projects', 'skills', 'languages',
+                'certifications', 'awards', 'references', 'custom_sections', 'sections',
+            ])],
             'skills' => ['nullable'],
             'skills.*.name' => ['nullable', 'string', 'max:120'],
             'skills.*.category' => ['nullable', 'string', 'max:120'],
@@ -87,9 +116,25 @@ class ResumeStoreRequest extends FormRequest
             'skills.*.sort_order' => ['nullable', 'integer', 'min:0'],
             'theme' => ['nullable', 'array'],
             'theme.accent_color' => ['nullable', 'regex:/^#[0-9A-Fa-f]{6}$/'],
+            'theme.secondary_color' => ['nullable', 'regex:/^#[0-9A-Fa-f]{6}$/'],
             'theme.font_pairing' => ['nullable', Rule::in(['modern', 'classic', 'executive', 'technical'])],
+            'theme.heading_font' => ['nullable', Rule::in(['Inter', 'Roboto', 'Lato', 'Poppins', 'Merriweather'])],
+            'theme.body_font' => ['nullable', Rule::in(['Inter', 'Roboto', 'Lato', 'Poppins', 'Merriweather'])],
+            'theme.font_scale' => ['nullable', 'integer', 'min:80', 'max:125'],
             'theme.density' => ['nullable', Rule::in(['compact', 'balanced', 'spacious'])],
             'theme.page_size' => ['nullable', Rule::in(['letter', 'a4'])],
+            'theme.layout' => ['nullable', Rule::in(['one-column', 'two-column'])],
+            'theme.sidebar_width' => ['nullable', 'integer', 'min:28', 'max:42'],
+            'theme.photo_position' => ['nullable', Rule::in(['left', 'center', 'right'])],
+            'theme.section_spacing' => ['nullable', Rule::in(['small', 'medium', 'large'])],
+            'theme.content_width' => ['nullable', Rule::in(['compact', 'standard', 'wide'])],
+            'theme.page_background' => ['nullable', 'regex:/^#[0-9A-Fa-f]{6}$/'],
+            'theme.dividers' => ['nullable', 'boolean'],
+            'theme.shadow' => ['nullable', 'boolean'],
+            'theme.header_color' => ['nullable', 'regex:/^#[0-9A-Fa-f]{6}$/'],
+            'theme.header_scale' => ['nullable', 'integer', 'min:70', 'max:150'],
+            'theme.styles' => ['nullable', 'array'],
+            'theme.styles.*' => ['nullable', 'array'],
             'profile.full_name' => ['nullable', 'string', 'max:255'],
             'profile.headline' => ['nullable', 'string', 'max:255'],
             'profile.email' => ['nullable', 'email', 'max:255'],

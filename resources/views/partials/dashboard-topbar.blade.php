@@ -14,9 +14,7 @@
                 <x-ui.icon name="bell" class="h-6 w-6" />
             </a>
             <a href="{{ route('profile.edit') }}" class="flex items-center gap-3 rounded-full bg-white py-1 pl-1 pr-3 shadow-soft rh-focus">
-                <span class="inline-flex h-9 w-9 items-center justify-center overflow-hidden rounded-full bg-primary text-white">
-                    <span class="font-display text-label-md">{{ strtoupper(substr(auth()->user()->name ?? 'Alex', 0, 1)) }}</span>
-                </span>
+                <x-ui.avatar :user="auth()->user()" size="h-9 w-9" text-size="text-sm" />
                 <span class="hidden text-left sm:block">
                     <span class="block font-display text-label-md text-on-surface">{{ auth()->user()->name ?? 'Alex Rivers' }}</span>
                     <span class="block text-label-sm text-on-surface-variant">{{ $mode === 'admin' ? 'Admin workspace' : 'Career workspace' }}</span>

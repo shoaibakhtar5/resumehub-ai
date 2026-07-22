@@ -41,8 +41,11 @@ return [
     ],
 
     'ai' => [
-        'provider' => env('AI_PROVIDER', 'resumehub-local'),
-        'model' => env('AI_MODEL', 'heuristic-v1'),
+        'provider' => env('AI_PROVIDER', 'gemini'),
+        'model' => env('AI_MODEL', 'gemini-1.5-flash'),
+        'gemini' => [
+            'api_key' => env('GEMINI_API_KEY'),
+        ],
     ],
 
     'slack' => [

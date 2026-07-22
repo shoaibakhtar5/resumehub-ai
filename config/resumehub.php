@@ -63,7 +63,6 @@ return [
                 ['label' => 'Dashboard', 'route' => 'dashboard', 'icon' => 'home'],
                 ['label' => 'AI Resume Studio', 'route' => 'ai.studio', 'icon' => 'sparkles'],
                 ['label' => 'Resume Builder', 'route' => 'resume.builder', 'icon' => 'pencil-square'],
-                ['label' => 'Resume Preview', 'route' => 'resume.preview', 'icon' => 'eye'],
             ],
         ],
         [

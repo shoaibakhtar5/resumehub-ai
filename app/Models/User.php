@@ -10,6 +10,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
+use Illuminate\Support\Str;
 
 class User extends Authenticatable implements MustVerifyEmail
 {
@@ -105,5 +106,18 @@ class User extends Authenticatable implements MustVerifyEmail
         );
 
         $this->roles()->syncWithoutDetaching([$roleModel->id]);
+    }
+
+    public function getProfilePhotoUrlAttribute(): ?string
+    {
+        if (blank($this->profile_photo_path)) {
+            return null;
+        }
+
+        if (Str::contains($this->profile_photo_path, '/storage/')) {
+            return '/storage/'.Str::after($this->profile_photo_path, '/storage/');
+        }
+
+        return $this->profile_photo_path;
     }
 }

@@ -1,0 +1,37 @@
+{
+    "inter": {
+        "300": "C:\\Users\\DEll\\Desktop\\resumehub-ai\\storage\\fonts\/inter_300_07dabb19b170e3852ebdf10a85924e18",
+        "normal": "C:\\Users\\DEll\\Desktop\\resumehub-ai\\storage\\fonts\/inter_normal_5a66f8ceb794f00a7f54c797a21283b3",
+        "500": "C:\\Users\\DEll\\Desktop\\resumehub-ai\\storage\\fonts\/inter_500_efef4d9d61ac26570557ad601dea222a",
+        "600": "C:\\Users\\DEll\\Desktop\\resumehub-ai\\storage\\fonts\/inter_600_3604d9d49b61fc3b7c29c4259c86ff89",
+        "bold": "C:\\Users\\DEll\\Desktop\\resumehub-ai\\storage\\fonts\/inter_bold_02384cdf43e3d24b76c57c66dfd114bf",
+        "800": "inter_800_43e268268a3801a5ec2cf116ab01b114"
+    },
+    "lato": {
+        "italic": "C:\\Users\\DEll\\Desktop\\resumehub-ai\\storage\\fonts\/lato_italic_58d1d1eae6bb191f4e369e586edf2f09",
+        "300": "C:\\Users\\DEll\\Desktop\\resumehub-ai\\storage\\fonts\/lato_300_f0c6ee3e35bb77a61aee3101d2b14826",
+        "normal": "C:\\Users\\DEll\\Desktop\\resumehub-ai\\storage\\fonts\/lato_normal_ed3f4ee6166e4a8d875402747e6fb7a0",
+        "bold": "lato_bold_67cbea2936080f3d5601566280ed0b77"
+    },
+    "merriweather": {
+        "italic": "C:\\Users\\DEll\\Desktop\\resumehub-ai\\storage\\fonts\/merriweather_italic_fd0d8bd4980be213f1d3705f55895d27",
+        "300": "C:\\Users\\DEll\\Desktop\\resumehub-ai\\storage\\fonts\/merriweather_300_78e91893aad9df335e9a23fecb4cebd7",
+        "normal": "C:\\Users\\DEll\\Desktop\\resumehub-ai\\storage\\fonts\/merriweather_normal_95aa013cbc4399abe9fa147bdbc339ff",
+        "bold": "merriweather_bold_63d1962cbdd7dc93b79a7bb1084bd81d"
+    },
+    "poppins": {
+        "300": "C:\\Users\\DEll\\Desktop\\resumehub-ai\\storage\\fonts\/poppins_300_7bd74212042e2303e96e1e2a59c91153",
+        "normal": "C:\\Users\\DEll\\Desktop\\resumehub-ai\\storage\\fonts\/poppins_normal_41eae6f88194706e4cb26de3ac737d8a",
+        "500": "C:\\Users\\DEll\\Desktop\\resumehub-ai\\storage\\fonts\/poppins_500_2a496847b9018af565e71324a9cbc097",
+        "600": "C:\\Users\\DEll\\Desktop\\resumehub-ai\\storage\\fonts\/poppins_600_154dcc58b1e77916e556017f33cbcd2e",
+        "bold": "C:\\Users\\DEll\\Desktop\\resumehub-ai\\storage\\fonts\/poppins_bold_c611dfa86762dbed0a7fd1e3d5f1a36c",
+        "800": "poppins_800_9f149437ca2ffb987bc0596e97cba3b4"
+    },
+    "roboto": {
+        "italic": "C:\\Users\\DEll\\Desktop\\resumehub-ai\\storage\\fonts\/roboto_italic_239e2bfb810acf9e47301b3e77eebf5f",
+        "300": "C:\\Users\\DEll\\Desktop\\resumehub-ai\\storage\\fonts\/roboto_300_2adc38dee1e6978b909890c30d64ea6f",
+        "normal": "C:\\Users\\DEll\\Desktop\\resumehub-ai\\storage\\fonts\/roboto_normal_826b21c6e9e390acde75d9452fa9e59f",
+        "500": "C:\\Users\\DEll\\Desktop\\resumehub-ai\\storage\\fonts\/roboto_500_6c31329457813f7a8ebc5a352147fef5",
+        "bold": "roboto_bold_1a8c4a1acbd70e6f5947d46ac9a3bfc6"
+    }
+}

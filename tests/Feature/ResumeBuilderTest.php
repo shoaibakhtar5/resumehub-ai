@@ -29,7 +29,9 @@ class ResumeBuilderTest extends TestCase
             ->assertSee('Projects')
             ->assertSee('Languages')
             ->assertSee('Professional Summary')
-            ->assertSee('Review')
+            ->assertSee('AI Tools')
+            ->assertSee('Theme presets')
+            ->assertSee('Live ATS score')
             ->assertSee('resume-live-preview')
             ->assertSee('novalidate', false);
     }
@@ -58,6 +60,25 @@ class ResumeBuilderTest extends TestCase
         $this->assertDatabaseHas('resumes', [
             'user_id' => $user->id,
             'template_id' => $template->id,
+        ]);
+    }
+
+    public function test_resume_builder_ai_action_returns_inline_json_without_redirecting(): void
+    {
+        $user = User::factory()->create();
+
+        $this->actingAs($user)->postJson(route('ai.generate'), [
+            'feature' => 'resume-builder',
+            'action' => 'summary',
+            'input' => 'Senior Laravel engineer improving platform reliability and delivery quality.',
+            'tone' => 'professional',
+        ])->assertOk()
+            ->assertJsonStructure(['output', 'history_id']);
+
+        $this->assertDatabaseHas('ai_histories', [
+            'user_id' => $user->id,
+            'feature' => 'resume-builder',
+            'action' => 'summary',
         ]);
     }
 
@@ -132,9 +153,17 @@ class ResumeBuilderTest extends TestCase
                 ]],
             ]],
             'sections' => [
-                ['section_key' => 'experience', 'is_visible' => true, 'sort_order' => 1],
+                ['section_key' => 'experience', 'is_visible' => true, 'sort_order' => 1, 'settings' => ['locked' => true, 'column' => 'main']],
                 ['section_key' => 'education', 'is_visible' => true, 'sort_order' => 2],
                 ['section_key' => 'projects', 'is_visible' => false, 'sort_order' => 3],
+            ],
+            'theme' => [
+                'accent_color' => '#3155e7', 'secondary_color' => '#142845',
+                'heading_font' => 'Poppins', 'body_font' => 'Inter', 'font_pairing' => 'modern',
+                'font_scale' => 105, 'density' => 'compact', 'page_size' => 'a4',
+                'layout' => 'two-column', 'sidebar_width' => 37, 'photo_position' => 'right',
+                'section_spacing' => 'medium', 'content_width' => 'standard',
+                'page_background' => '#ffffff', 'dividers' => true, 'shadow' => false,
             ],
         ]);
 
@@ -155,10 +184,13 @@ class ResumeBuilderTest extends TestCase
         $this->assertSame('Publications', $resume->customSections()->first()->title);
         $this->assertDatabaseHas('resume_summaries', ['resume_id' => $resume->id, 'word_count' => 7]);
         $this->assertDatabaseHas('resume_sections', ['resume_id' => $resume->id, 'section_key' => 'projects', 'is_visible' => false]);
+        $this->assertTrue((bool) data_get($resume->sections()->where('section_key', 'experience')->firstOrFail()->settings, 'locked'));
+        $this->assertSame(37, data_get($resume->settings, 'theme.sidebar_width'));
+        $this->assertSame('right', data_get($resume->settings, 'theme.photo_position'));
 
         $this->get(route('resumes.edit', $resume))
             ->assertOk()
-            ->assertSee('Save as Draft');
+            ->assertSee('Save version');
     }
 
     public function test_resume_builder_normalizes_domain_only_urls_before_saving(): void
@@ -315,7 +347,12 @@ class ResumeBuilderTest extends TestCase
                     'full_name' => 'Avery Chen',
                     'email' => 'avery@example.com',
                 ],
-                'theme' => ['accent_color' => '#0f7a5a'],
+                'theme' => [
+                    'accent_color' => '#0f7a5a',
+                    'secondary_color' => '#133b35',
+                    'layout' => 'one-column',
+                    'heading_font' => 'Merriweather',
+                ],
                 'skills' => [['name' => 'Laravel']],
                 'educations' => [['institution' => 'Example University', 'degree' => 'BSc']],
                 'experiences' => [['company' => 'Example Company', 'position' => 'Engineer']],
@@ -331,7 +368,11 @@ class ResumeBuilderTest extends TestCase
             ->assertSee('Example Company')
             ->assertSee('Example Project')
             ->assertSee('English')
-            ->assertSee('AWS Certified Developer');
+            ->assertSee('AWS Certified Developer')
+            ->assertSee('--rh-accent:#0f7a5a', false)
+            ->assertSee('--rh-secondary:#133b35', false)
+            ->assertSee('--rh-heading-font:"Merriweather"', false)
+            ->assertSee('rh-embedded-template rh-layout-one-column', false);
     }
 
     public function test_live_preview_formats_dates_hides_empty_sections_and_handles_long_content(): void

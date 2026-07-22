@@ -3,6 +3,7 @@
 namespace App\Providers;
 
 use App\Listeners\SendEmailVerificationNotification;
+use App\Livewire\AiAssistantPanel;
 use App\Livewire\LiveResumePreview;
 use Illuminate\Auth\Events\Registered;
 use Illuminate\Support\ServiceProvider;
@@ -33,5 +34,6 @@ class AppServiceProvider extends ServiceProvider
 
         // Register Livewire components
         Livewire::component('live-resume-preview', LiveResumePreview::class);
+        Livewire::component('ai-assistant-panel', AiAssistantPanel::class);
     }
 }

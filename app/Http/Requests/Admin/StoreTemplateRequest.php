@@ -23,7 +23,7 @@ class StoreTemplateRequest extends FormRequest
             'slug' => ['required', 'string', 'max:255', 'alpha_dash', Rule::unique('templates', 'slug')],
             'template_category_id' => ['nullable', 'integer', 'exists:template_categories,id'],
             'description' => ['nullable', 'string', 'max:3000'],
-            'template_file' => ['required', 'file', 'max:5120'],
+            'template_file' => ['required', 'file', 'max:5120', 'extensions:html,htm,txt,tex'],
             'thumbnail' => ['nullable', 'image', 'mimes:jpg,jpeg,png,webp', 'max:2048'],
             'primary_color' => ['required', 'regex:/^#[0-9A-Fa-f]{6}$/'],
             'font_family' => ['required', 'string', 'max:120', 'regex:/^[A-Za-z0-9 ,\-\'\"]+$/'],
@@ -54,5 +54,10 @@ class StoreTemplateRequest extends FormRequest
                 }
             }
         }];
+    }
+
+    public function messages(): array
+    {
+        return ['template_file.extensions' => 'Upload an HTML (.html), TXT (.txt), or LaTeX (.tex) template file.'];
     }
 }

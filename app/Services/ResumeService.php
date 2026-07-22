@@ -49,16 +49,41 @@ class ResumeService
     public function update(Resume $resume, User $user, array $data, string $reason = 'manual'): Resume
     {
         return DB::transaction(function () use ($resume, $user, $data, $reason): Resume {
+            $incomingTemplateId = $data['template_id'] ?? $resume->template_id;
+            $previousTemplateId = $resume->template_id;
+            $currentSettings   = $resume->settings ?? [];
+
+            // When the user is switching templates, snapshot the current theme under the
+            // old template key so it can be restored if they switch back.
+            if ((string) $incomingTemplateId !== (string) $previousTemplateId && $previousTemplateId) {
+                $oldThemeKey = 'template_themes.' . $previousTemplateId;
+                $currentTheme = $currentSettings['theme'] ?? [];
+                data_set($currentSettings, $oldThemeKey, $currentTheme);
+            }
+
+            $newSettings = $this->settingsFromData($data);
+
+            // When switching TO a new template, restore any previously-saved theme for it,
+            // but only when the autosaved payload does NOT already carry a real user theme.
+            if ((string) $incomingTemplateId !== (string) $previousTemplateId && $incomingTemplateId) {
+                $savedThemeForNew = data_get($currentSettings, 'template_themes.' . $incomingTemplateId);
+                if ($savedThemeForNew && empty($newSettings['theme'])) {
+                    $newSettings['theme'] = $savedThemeForNew;
+                }
+            }
+
+            $mergedSettings = array_replace_recursive($currentSettings, $newSettings);
+
             $resume->fill([
-                'template_id' => $data['template_id'] ?? $resume->template_id,
-                'title' => $data['title'] ?? $resume->title,
-                'slug' => isset($data['title']) && $data['title'] !== $resume->title
+                'template_id'   => $incomingTemplateId,
+                'title'         => $data['title'] ?? $resume->title,
+                'slug'          => isset($data['title']) && $data['title'] !== $resume->title
                     ? $this->uniqueSlug($resume->user, $data['title'], $resume->id)
                     : $resume->slug,
-                'target_role' => $data['target_role'] ?? null,
+                'target_role'   => $data['target_role'] ?? null,
                 'target_company' => $data['target_company'] ?? null,
-                'language' => $data['language'] ?? $resume->language,
-                'settings' => array_replace_recursive($resume->settings ?? [], $this->settingsFromData($data)),
+                'language'      => $data['language'] ?? $resume->language,
+                'settings'      => $mergedSettings,
             ]);
 
             if ($reason === 'autosave') {
@@ -75,6 +100,21 @@ class ResumeService
 
             return $resume;
         });
+    }
+
+    /**
+     * Return the stored theme for a specific template on this resume.
+     * Falls back to the current active theme if no per-template snapshot exists.
+     */
+    public function getThemeForTemplate(Resume $resume, int|string $templateId): array
+    {
+        $settings = $resume->settings ?? [];
+        $perTemplate = data_get($settings, 'template_themes.' . $templateId);
+        if ($perTemplate && is_array($perTemplate)) {
+            return $perTemplate;
+        }
+        // No snapshot yet — return a clean default so no edits bleed from another template
+        return $this->theme([]);
     }
 
     public function duplicate(Resume $resume, User $user): Resume
@@ -763,12 +803,37 @@ class ResumeService
 
     private function theme(array $theme): array
     {
-        return [
-            'accent_color' => $theme['accent_color'] ?? '#3525cd',
-            'font_pairing' => $theme['font_pairing'] ?? 'modern',
-            'density' => $theme['density'] ?? 'balanced',
-            'page_size' => $theme['page_size'] ?? 'letter',
+        // Build the validated base — only sanitize known numeric/enum fields.
+        // We keep ALL other user-supplied keys (header_color, header_scale, styles, etc.)
+        // so that custom per-element overrides are never silently dropped on save.
+        $base = [
+            'accent_color'   => $theme['accent_color'] ?? '#3525cd',
+            'secondary_color' => $theme['secondary_color'] ?? '#142845',
+            'font_pairing'   => $theme['font_pairing'] ?? 'modern',
+            'heading_font'   => $theme['heading_font'] ?? 'Poppins',
+            'body_font'      => $theme['body_font'] ?? 'Inter',
+            'font_scale'     => max(80, min(125, (int) ($theme['font_scale'] ?? 100))),
+            'density'        => $theme['density'] ?? 'balanced',
+            'page_size'      => $theme['page_size'] ?? 'a4',
+            'layout'         => $theme['layout'] ?? 'two-column',
+            'sidebar_width'  => max(28, min(42, (int) ($theme['sidebar_width'] ?? 34))),
+            'photo_position' => $theme['photo_position'] ?? 'center',
+            'section_spacing' => $theme['section_spacing'] ?? 'medium',
+            'content_width'  => $theme['content_width'] ?? 'standard',
+            'page_background' => $theme['page_background'] ?? '#ffffff',
+            'dividers'       => $this->bool($theme['dividers'] ?? true),
+            'shadow'         => $this->bool($theme['shadow'] ?? true),
         ];
+
+        // Preserve any extra keys the editor stores (header_color, header_scale, styles map, etc.)
+        $knownKeys = array_keys($base);
+        foreach ($theme as $key => $value) {
+            if (! in_array($key, $knownKeys, true)) {
+                $base[$key] = $value;
+            }
+        }
+
+        return $base;
     }
 
     private function skillRows(mixed $skills): array

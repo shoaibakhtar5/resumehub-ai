@@ -1,5 +1,5 @@
-<div id="resume-live-preview" class="resume-template-{{ $templateVariant }} min-h-full w-full overflow-hidden bg-white" data-template="{{ $templateSlug }}">
-    <div class="resume-rendered-document h-full w-full [&>html]:h-full [&>html]:w-full [&_body]:h-full [&_body]:w-full">
+<div id="resume-live-preview" class="resume-template-{{ $templateVariant }} w-full overflow-visible" data-template="{{ $templateSlug }}" x-on:resume-photo-selected.window="$el.querySelector('.rh-photo')?.setAttribute('src', $event.detail)">
+    <div wire:key="rendered-doc-{{ $payload['template_id'] ?? 'default' }}-{{ md5($renderedHtml) }}" class="resume-rendered-document w-full">
         {!! $renderedHtml !!}
     </div>
 </div>

@@ -45,6 +45,9 @@ class TemplateController extends Controller
         if ($request->filled('featured')) {
             $query->where('config->is_featured', $request->boolean('featured'));
         }
+        if ($sourceType = $request->string('source_type')->toString()) {
+            $query->where('config->source_type', $sourceType);
+        }
 
         $templates = $query->orderBy('sort_order')->orderByDesc('updated_at')->paginate(8)->withQueryString();
         $downloadCounts = ResumeDownload::query()
@@ -99,9 +102,11 @@ class TemplateController extends Controller
     public function update(UpdateTemplateRequest $request, Template $template): RedirectResponse
     {
         DB::transaction(function () use ($request, $template): void {
-            $template->update($this->payload($request->validated(), $template->created_by_user_id, $request->user()->id));
+            $template->update($this->payload($request->validated(), $template->created_by_user_id, $request->user()->id, $template->config ?? []));
             if ($request->hasFile('template_file')) {
                 $this->uploads->storeSource($template, $request->file('template_file'));
+            } elseif ($request->filled('template_mappings')) {
+                $this->uploads->applyMappings($template, $request->validated('template_mappings', []));
             }
             if ($request->hasFile('thumbnail')) {
                 $this->uploads->storeThumbnail($template, $request->file('thumbnail'), $request->user());
@@ -146,6 +151,9 @@ class TemplateController extends Controller
     public function status(Template $template): RedirectResponse
     {
         $this->authorize('update', $template);
+        if ($template->status !== 'published' && data_get($template->config, 'requires_mapping')) {
+            return back()->withErrors(['status' => 'Complete the unresolved template field mappings before publishing.']);
+        }
         $template->update(['status' => $template->status === 'published' ? 'disabled' : 'published']);
 
         return back()->with('status', 'Template status updated.');
@@ -184,7 +192,7 @@ class TemplateController extends Controller
         ]);
     }
 
-    private function payload(array $data, ?int $createdBy, ?int $updatedBy = null): array
+    private function payload(array $data, ?int $createdBy, ?int $updatedBy = null, array $existingConfig = []): array
     {
         return [
             'template_category_id' => $data['template_category_id'] ?? null,
@@ -192,13 +200,13 @@ class TemplateController extends Controller
             'name' => $data['name'], 'slug' => Str::slug($data['slug']),
             'description' => $data['description'] ?? null, 'status' => $data['status'],
             'is_premium' => (bool) ($data['is_premium'] ?? false), 'sort_order' => $data['sort_order'],
-            'config' => [
+            'config' => array_merge($existingConfig, [
                 'primary_color' => $data['primary_color'], 'font_family' => $data['font_family'],
                 'supported_sections' => array_values($data['supported_sections']),
                 'preview_images' => array_values(array_filter($data['preview_images'] ?? [])),
                 'is_featured' => (bool) ($data['is_featured'] ?? false),
                 'updated_by_user_id' => $updatedBy ?? $createdBy,
-            ],
+            ]),
         ];
     }
 

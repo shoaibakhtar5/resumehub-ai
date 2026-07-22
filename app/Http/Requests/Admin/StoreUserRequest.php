@@ -9,6 +9,14 @@ use Illuminate\Validation\Rules\Password;
 
 class StoreUserRequest extends FormRequest
 {
+    protected function prepareForValidation(): void
+    {
+        $this->merge([
+            'timezone' => $this->filled('timezone') ? $this->input('timezone') : 'UTC',
+            'locale' => $this->filled('locale') ? $this->input('locale') : 'en',
+        ]);
+    }
+
     public function authorize(): bool
     {
         return (bool) $this->user()?->can('create', User::class);
@@ -20,6 +28,8 @@ class StoreUserRequest extends FormRequest
             'name' => ['required', 'string', 'max:160'],
             'email' => ['required', 'string', 'lowercase', 'email', 'max:255', Rule::unique(User::class)],
             'phone' => ['nullable', 'string', 'max:40'],
+            'timezone' => ['required', 'timezone'],
+            'locale' => ['required', 'string', 'max:10', 'regex:/^[a-z]{2}(?:[-_][A-Z]{2})?$/'],
             'password' => ['required', 'confirmed', Password::defaults()],
             'status' => ['required', Rule::in(['active', 'inactive'])],
             'profile_photo' => ['nullable', 'image', 'mimes:jpg,jpeg,png,webp', 'max:2048'],

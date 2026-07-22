@@ -37,4 +37,16 @@ class MediaService
             'metadata' => $metadata + ['path' => $path, 'url' => Storage::disk($disk)->url($path)],
         ]);
     }
+
+    public function discard(Media $media): void
+    {
+        $path = $media->metadata['path'] ?? null;
+        if (is_string($path) && $path !== '') {
+            Storage::disk($media->disk ?: 'public')->delete($path);
+        }
+
+        if ($media->exists) {
+            $media->forceDelete();
+        }
+    }
 }

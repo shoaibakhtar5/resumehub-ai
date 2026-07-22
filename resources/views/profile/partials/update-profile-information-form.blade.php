@@ -1,89 +1,51 @@
-<section>
-    <header>
-        <h2 class="text-lg font-medium text-gray-900">
-            {{ __('Profile Information') }}
-        </h2>
+<div class="border-b border-slate-100 px-6 py-5 sm:px-7">
+    <div class="flex items-center gap-3">
+        <span class="flex h-10 w-10 items-center justify-center rounded-xl bg-indigo-50 text-indigo-600"><x-ui.icon name="user" class="h-5 w-5" /></span>
+        <div><h2 class="font-display text-lg font-semibold text-slate-900">Personal information</h2><p class="text-sm text-slate-500">Update your identity and contact details.</p></div>
+    </div>
+</div>
 
-        <p class="mt-1 text-sm text-gray-600">
-            {{ __("Update your account's profile information and email address.") }}
-        </p>
-    </header>
+<form id="send-verification" method="POST" action="{{ route('verification.send') }}">@csrf</form>
 
-    <form id="send-verification" method="post" action="{{ route('verification.send') }}">
-        @csrf
-    </form>
+<form method="POST" action="{{ route('profile.update') }}" enctype="multipart/form-data" class="p-6 sm:p-7" x-data="{ preview: null, fileName: '' }">
+    @csrf
+    @method('PATCH')
 
-    <form method="post" action="{{ route('profile.update') }}" enctype="multipart/form-data" class="mt-6 space-y-6">
-        @csrf
-        @method('patch')
-
+    <div class="grid gap-7 lg:grid-cols-[180px_minmax(0,1fr)]">
         <div>
-            <x-input-label for="name" :value="__('Name')" />
-            <x-text-input id="name" name="name" type="text" class="mt-1 block w-full" :value="old('name', $user->name)" required autofocus autocomplete="name" />
-            <x-input-error class="mt-2" :messages="$errors->get('name')" />
-        </div>
-
-        <div>
-            <x-input-label for="email" :value="__('Email')" />
-            <x-text-input id="email" name="email" type="email" class="mt-1 block w-full" :value="old('email', $user->email)" required autocomplete="username" />
-            <x-input-error class="mt-2" :messages="$errors->get('email')" />
-
-            @if ($user instanceof \Illuminate\Contracts\Auth\MustVerifyEmail && ! $user->hasVerifiedEmail())
-                <div>
-                    <p class="text-sm mt-2 text-gray-800">
-                        {{ __('Your email address is unverified.') }}
-
-                        <button form="send-verification" class="underline text-sm text-gray-600 hover:text-gray-900 rounded-md focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500">
-                            {{ __('Click here to re-send the verification email.') }}
-                        </button>
-                    </p>
-
-                    @if (session('status') === 'verification-link-sent')
-                        <p class="mt-2 font-medium text-sm text-green-600">
-                            {{ __('A new verification link has been sent to your email address.') }}
-                        </p>
-                    @endif
-                </div>
-            @endif
-        </div>
-
-        <div>
-            <x-input-label for="phone" :value="__('Phone')" />
-            <x-text-input id="phone" name="phone" type="tel" class="mt-1 block w-full" :value="old('phone', $user->phone)" autocomplete="tel" />
-            <x-input-error class="mt-2" :messages="$errors->get('phone')" />
-        </div>
-
-        <div class="grid gap-4 sm:grid-cols-2">
-            <div>
-                <x-input-label for="timezone" :value="__('Timezone')" />
-                <x-text-input id="timezone" name="timezone" type="text" class="mt-1 block w-full" :value="old('timezone', $user->timezone)" />
-                <x-input-error class="mt-2" :messages="$errors->get('timezone')" />
+            <p class="mb-3 text-sm font-semibold text-slate-800">Profile photo</p>
+            <div class="relative w-fit">
+                <x-ui.avatar :user="$user" size="h-32 w-32" text-size="text-3xl" class="ring-4 ring-slate-100" />
+                <template x-if="preview"><img :src="preview" alt="Selected profile photo" class="absolute inset-0 h-32 w-32 rounded-full object-cover ring-4 ring-indigo-100"></template>
+                <label for="profile_photo" class="absolute bottom-0 right-0 flex h-10 w-10 cursor-pointer items-center justify-center rounded-full border-4 border-white bg-indigo-600 text-white shadow-lg transition hover:bg-indigo-700" title="Choose profile photo"><x-ui.icon name="photo" class="h-4 w-4" /></label>
             </div>
-            <div>
-                <x-input-label for="locale" :value="__('Locale')" />
-                <x-text-input id="locale" name="locale" type="text" class="mt-1 block w-full" :value="old('locale', $user->locale)" />
-                <x-input-error class="mt-2" :messages="$errors->get('locale')" />
-            </div>
-        </div>
-
-        <div>
-            <x-input-label for="profile_photo" :value="__('Profile photo')" />
-            <input id="profile_photo" name="profile_photo" type="file" accept="image/*" class="mt-1 block w-full text-sm text-gray-700" />
+            <input id="profile_photo" name="profile_photo" type="file" accept="image/jpeg,image/png,image/webp" class="sr-only" @change="const file = $event.target.files[0]; if (file) { preview = URL.createObjectURL(file); fileName = file.name }">
+            <p class="mt-4 break-words text-xs text-slate-500" x-text="fileName || 'JPG, PNG or WEBP · Max 2MB'"></p>
             <x-input-error class="mt-2" :messages="$errors->get('profile_photo')" />
         </div>
 
-        <div class="flex items-center gap-4">
-            <x-primary-button>{{ __('Save') }}</x-primary-button>
-
-            @if (session('status') === 'profile-updated')
-                <p
-                    x-data="{ show: true }"
-                    x-show="show"
-                    x-transition
-                    x-init="setTimeout(() => show = false, 2000)"
-                    class="text-sm text-gray-600"
-                >{{ __('Saved.') }}</p>
-            @endif
+        <div class="grid gap-5 sm:grid-cols-2">
+            <div class="sm:col-span-2"><x-ui.input label="Full name" name="name" type="text" :value="old('name', $user->name)" required autocomplete="name" :error="$errors->first('name')" /></div>
+            <div class="sm:col-span-2"><x-ui.input label="Email address" name="email" type="email" :value="old('email', $user->email)" required autocomplete="username" :error="$errors->first('email')" /></div>
+            <x-ui.input label="Phone number" name="phone" type="tel" :value="old('phone', $user->phone)" autocomplete="tel" :error="$errors->first('phone')" />
+            <x-ui.select label="Language" name="locale" :selected="old('locale', $user->locale ?: 'en')" :options="['en' => 'English', 'en-GB' => 'English (UK)', 'ur' => 'Urdu']" />
+            <div class="sm:col-span-2">
+                <x-ui.input label="Timezone" name="timezone" type="text" list="timezone-options" :value="old('timezone', $user->timezone ?: 'UTC')" required :error="$errors->first('timezone')" />
+                <datalist id="timezone-options">@foreach(['UTC','Asia/Karachi','Asia/Dubai','Asia/Kolkata','Europe/London','Europe/Berlin','America/New_York','America/Chicago','America/Denver','America/Los_Angeles','Australia/Sydney'] as $timezone)<option value="{{ $timezone }}"></option>@endforeach</datalist>
+            </div>
         </div>
-    </form>
-</section>
+    </div>
+
+    @if ($user instanceof \Illuminate\Contracts\Auth\MustVerifyEmail && ! $user->hasVerifiedEmail())
+        <div class="mt-6 rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900">
+            Your email address is not verified.
+            <button form="send-verification" class="ml-1 font-semibold underline underline-offset-2">Send another verification email</button>
+            @if (session('status') === 'verification-link-sent')<p class="mt-2 font-semibold text-emerald-700">A new verification link has been sent.</p>@endif
+        </div>
+    @endif
+
+    <div class="mt-7 flex flex-wrap items-center gap-4 border-t border-slate-100 pt-6">
+        <x-ui.button type="submit" icon="check">Save profile</x-ui.button>
+        @if (session('status') === 'profile-updated')<p x-data="{ show: true }" x-show="show" x-transition x-init="setTimeout(() => show = false, 3000)" class="inline-flex items-center gap-2 text-sm font-semibold text-emerald-600"><span class="h-2 w-2 rounded-full bg-emerald-500"></span>Profile updated successfully.</p>@endif
+    </div>
+</form>

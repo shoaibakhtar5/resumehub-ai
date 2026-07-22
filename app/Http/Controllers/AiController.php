@@ -6,6 +6,7 @@ use App\Http\Requests\AiActionRequest;
 use App\Models\AiHistory;
 use App\Models\Resume;
 use App\Services\Ai\ResumeAiService;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\View\View;
@@ -18,10 +19,10 @@ class AiController extends Controller
 
     public function studio(Request $request): View
     {
-        return view('dashboard.page', [
+        return view('dashboard.ai-studio', [
             'mode' => 'user',
             'page' => $this->page('ai-resume-studio', $request),
-            'aiHistories' => AiHistory::query()->where('user_id', $request->user()->id)->latest()->limit(10)->get(),
+            'aiHistories' => AiHistory::query()->with('resume')->where('user_id', $request->user()->id)->latest()->limit(10)->get(),
             'resumes' => $request->user()->resumes()->latest('updated_at')->get(),
         ]);
     }
@@ -36,11 +37,28 @@ class AiController extends Controller
         ]);
     }
 
-    public function generate(AiActionRequest $request): RedirectResponse
+    public function generate(AiActionRequest $request): RedirectResponse|JsonResponse
     {
-        $history = $this->ai->generate($request->user(), $request->validated());
+        try {
+            $history = $this->ai->generate($request->user(), $request->validated());
 
-        return back()->with('status', 'AI suggestion generated.')->with('ai_output', $history->output);
+            if ($request->expectsJson()) {
+                return response()->json([
+                    'output' => $history->output,
+                    'history_id' => $history->getKey(),
+                ]);
+            }
+
+            return back()->with('status', 'AI suggestion generated.')->with('ai_output', $history->output);
+        } catch (\Exception $e) {
+            if ($request->expectsJson()) {
+                return response()->json([
+                    'message' => $e->getMessage(),
+                ], 429);
+            }
+
+            return back()->withInput()->with('error', $e->getMessage());
+        }
     }
 
     private function page(string $key, Request $request): array

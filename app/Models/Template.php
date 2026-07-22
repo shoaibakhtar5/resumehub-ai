@@ -55,4 +55,9 @@ class Template extends Model
     {
         return data_get($this->previewMedia?->metadata, 'url') ?: $this->preview_path;
     }
+
+    public function getSourceTypeAttribute(): string
+    {
+        return (string) data_get($this->config, 'source_type', 'html');
+    }
 }

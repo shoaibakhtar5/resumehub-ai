@@ -32,12 +32,16 @@ class ResumeBuilderService
         $presentCollections = $data['present_collections'] ?? [];
 
         foreach ([
-            'profile', 'summary', 'theme', 'social_links', 'experiences', 'educations', 'projects', 'skills', 'languages',
+            'profile', 'theme', 'social_links', 'experiences', 'educations', 'projects', 'skills', 'languages',
             'certifications', 'awards', 'references', 'custom_sections', 'sections',
         ] as $collection) {
             if (array_key_exists($collection, $data) || in_array($collection, $presentCollections, true)) {
                 $payload[$collection] = $data[$collection] ?? [];
             }
+        }
+
+        if (array_key_exists('summary', $data) || in_array('summary', $presentCollections, true)) {
+            $payload['summary'] = $data['summary'] ?? null;
         }
 
         return $payload;

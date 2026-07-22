@@ -9,6 +9,14 @@ use Illuminate\Validation\Rule;
 
 class ProfileUpdateRequest extends FormRequest
 {
+    protected function prepareForValidation(): void
+    {
+        $this->merge([
+            'timezone' => $this->filled('timezone') ? $this->input('timezone') : ($this->user()->timezone ?: 'UTC'),
+            'locale' => $this->filled('locale') ? $this->input('locale') : ($this->user()->locale ?: 'en'),
+        ]);
+    }
+
     /**
      * Get the validation rules that apply to the request.
      *
@@ -27,9 +35,9 @@ class ProfileUpdateRequest extends FormRequest
                 Rule::unique(User::class)->ignore($this->user()->id),
             ],
             'phone' => ['nullable', 'string', 'max:40'],
-            'timezone' => ['nullable', 'timezone'],
-            'locale' => ['nullable', 'string', 'max:10'],
-            'profile_photo' => ['nullable', 'image', 'max:2048'],
+            'timezone' => ['required', 'timezone'],
+            'locale' => ['required', 'string', 'max:10', 'regex:/^[a-z]{2}(?:[-_][A-Z]{2})?$/'],
+            'profile_photo' => ['nullable', 'image', 'mimes:jpg,jpeg,png,webp', 'max:2048'],
         ];
     }
 }

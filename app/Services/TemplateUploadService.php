@@ -6,71 +6,95 @@ use App\Models\Template;
 use App\Models\User;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Storage;
-use Illuminate\Support\Str;
-use Illuminate\Validation\ValidationException;
+use Illuminate\Support\Carbon;
+use RuntimeException;
 
 class TemplateUploadService
 {
     public function __construct(
-        private readonly TemplateRenderingService $renderer,
+        private readonly TemplateProcessingService $processor,
         private readonly MediaService $media,
     ) {}
 
     public function validateSource(UploadedFile $file): string
     {
-        $extension = strtolower($file->getClientOriginalExtension());
-
-        if (! in_array($extension, ['html', 'htm', 'txt'], true)) {
-            throw ValidationException::withMessages(['template_file' => 'Upload an HTML file or a TXT file containing HTML markup.']);
-        }
-
-        $html = file_get_contents($file->getRealPath());
-
-        if (! is_string($html) || trim($html) === '' || ! preg_match('/<\s*[a-z][^>]*>/i', $html)) {
-            throw ValidationException::withMessages(['template_file' => 'The uploaded file does not contain valid HTML markup.']);
-        }
-
-        if (preg_match('/<(script|iframe|object|embed|form|base)\b/i', $html)
-            || preg_match('/\son[a-z]+\s*=/i', $html)
-            || preg_match('/(?:javascript:|data:text\/html|@import|expression\s*\()/i', $html)) {
-            throw ValidationException::withMessages(['template_file' => 'The template contains unsafe executable or embedded content.']);
-        }
-
-        preg_match_all('/{{\s*([a-z_]+)\s*}}/i', $html, $matches);
-        $placeholders = array_values(array_unique(array_map('strtolower', $matches[1] ?? [])));
-        $unknown = array_diff($placeholders, $this->renderer->allowedPlaceholders());
-
-        if ($unknown !== []) {
-            throw ValidationException::withMessages(['template_file' => 'Unknown placeholder(s): '.implode(', ', $unknown).'.']);
-        }
-
-        if (! in_array('full_name', $placeholders, true)) {
-            throw ValidationException::withMessages(['template_file' => 'The template must contain the {{ full_name }} placeholder.']);
-        }
-
-        $contentPlaceholders = array_intersect($placeholders, ['summary', 'experiences', 'education', 'skills', 'projects', 'certifications', 'languages', 'awards', 'references']);
-
-        if ($contentPlaceholders === []) {
-            throw ValidationException::withMessages(['template_file' => 'Include at least one resume section placeholder, such as {{ experiences }} or {{ education }}.']);
-        }
-
-        return $this->normalizeDocument($html);
+        return $this->processor->process($file)['html'];
     }
 
     public function storeSource(Template $template, UploadedFile $file): string
     {
-        $html = $this->validateSource($file);
+        $processed = $this->processor->process($file);
         $version = $this->nextVersion($template->version);
         $path = 'templates/'.$template->getKey().'/'.$version.'/resume.html';
+        $previousPath = $template->package_path;
 
-        Storage::disk('local')->put($path, $html);
+        if (! Storage::disk('local')->put($path, $processed['html'])) {
+            throw new RuntimeException('The processed template could not be stored.');
+        }
         $template->forceFill([
             'package_path' => $path,
             'entry_html' => 'resume.html',
             'version' => $version,
+            'config' => array_merge($template->config ?? [], [
+                'source_type' => $processed['source_type'],
+                'source_extension' => $processed['extension'],
+                'source_mime_type' => $processed['mime_type'],
+                'source_original_name' => $processed['original_name'],
+                'source_size_bytes' => $processed['size_bytes'],
+                'source_checksum' => $processed['checksum'],
+                'detected_placeholders' => $processed['placeholders'],
+                'detected_fields' => $processed['detected_fields'],
+                'mapping_candidates' => $processed['mapping_candidates'],
+                'requires_mapping' => $processed['requires_mapping'],
+                'processed_at' => Carbon::now()->toIso8601String(),
+                'processor_version' => 2,
+            ]),
+            'status' => $processed['requires_mapping'] ? 'draft' : $template->status,
         ])->save();
 
+        if ($previousPath && $previousPath !== $path) {
+            Storage::disk('local')->delete($previousPath);
+        }
+
         return $path;
+    }
+
+    /** @param array<string,string|null> $mappings */
+    public function applyMappings(Template $template, array $mappings): void
+    {
+        $candidates = data_get($template->config, 'mapping_candidates', []);
+        if (! is_array($candidates) || $candidates === [] || ! $template->package_path) {
+            return;
+        }
+
+        $disk = Storage::disk('local');
+        if (! $disk->exists($template->package_path)) {
+            throw new RuntimeException('The stored template source could not be found.');
+        }
+
+        $processed = $this->processor->applyMappings($disk->get($template->package_path), $mappings, $candidates);
+        $version = $this->nextVersion($template->version);
+        $path = 'templates/'.$template->getKey().'/'.$version.'/resume.html';
+        $previousPath = $template->package_path;
+        if (! $disk->put($path, $processed['html'])) {
+            throw new RuntimeException('The mapped template could not be stored.');
+        }
+
+        $template->forceFill([
+            'package_path' => $path,
+            'version' => $version,
+            'status' => $processed['requires_mapping'] ? 'draft' : $template->status,
+            'config' => array_merge($template->config ?? [], [
+                'detected_placeholders' => $processed['placeholders'],
+                'mapping_candidates' => $processed['mapping_candidates'],
+                'requires_mapping' => $processed['requires_mapping'],
+                'processed_at' => Carbon::now()->toIso8601String(),
+            ]),
+        ])->save();
+
+        if ($previousPath !== $path) {
+            $disk->delete($previousPath);
+        }
     }
 
     public function storeThumbnail(Template $template, UploadedFile $file, User $user): void
@@ -90,17 +114,6 @@ class TemplateUploadService
         if ($template->package_path) {
             Storage::disk('local')->delete($template->package_path);
         }
-    }
-
-    private function normalizeDocument(string $html): string
-    {
-        $html = str_replace(["\r\n", "\r"], "\n", trim($html));
-
-        if (! preg_match('/<html\b/i', $html)) {
-            $html = '<!doctype html><html><head><meta charset="utf-8"></head><body>'.$html.'</body></html>';
-        }
-
-        return $html;
     }
 
     private function nextVersion(?string $version): string

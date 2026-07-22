@@ -4,6 +4,9 @@ namespace Tests\Feature;
 
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Str;
 use Tests\TestCase;
 
 class ProfileTest extends TestCase
@@ -59,6 +62,50 @@ class ProfileTest extends TestCase
         $this->assertSame('Test User', $user->name);
         $this->assertSame('test@example.com', $user->email);
         $this->assertNull($user->email_verified_at);
+    }
+
+    public function test_blank_regional_fields_are_preserved_and_profile_photo_is_stored(): void
+    {
+        Storage::fake('public');
+        $user = User::factory()->create(['timezone' => 'UTC', 'locale' => 'en']);
+
+        $response = $this->actingAs($user)->patch('/profile', [
+            'name' => 'Photo User',
+            'email' => $user->email,
+            'timezone' => '',
+            'locale' => '',
+            'profile_photo' => UploadedFile::fake()->createWithContent(
+                'avatar.png',
+                base64_decode('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII='),
+            ),
+        ]);
+
+        $response->assertSessionHasNoErrors()->assertRedirect('/profile');
+        $user->refresh();
+
+        $this->assertSame('UTC', $user->timezone);
+        $this->assertSame('en', $user->locale);
+        $this->assertStringStartsWith('/storage/profile-photos/', $user->profile_photo_path);
+        $this->assertSame($user->profile_photo_path, $user->profile_photo_url);
+        Storage::disk('public')->assertExists(Str::after($user->profile_photo_path, '/storage/'));
+    }
+
+    public function test_user_settings_are_functional_and_persist_preferences(): void
+    {
+        $user = User::factory()->create();
+
+        $this->actingAs($user)->get(route('settings'))
+            ->assertOk()
+            ->assertSee('Language and region');
+
+        $this->patch(route('settings.update'), [
+            'timezone' => 'Asia/Karachi',
+            'locale' => 'en-GB',
+        ])->assertSessionHasNoErrors()->assertRedirect(route('settings'));
+
+        $user->refresh();
+        $this->assertSame('Asia/Karachi', $user->timezone);
+        $this->assertSame('en-GB', $user->locale);
     }
 
     public function test_email_verification_status_is_unchanged_when_the_email_address_is_unchanged(): void

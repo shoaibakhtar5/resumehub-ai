@@ -3,10 +3,223 @@
 <head>
     <meta charset="utf-8">
     <style>
-        *{box-sizing:border-box}html,body{margin:0;min-height:100%;background:#fff;color:#172033;font-family:Inter,Arial,sans-serif}body{font-size:11px;line-height:1.48;overflow-wrap:anywhere}.rh-page{width:100%;min-height:100%;display:grid;grid-template-columns:31% 69%;background:#fff}.rh-sidebar{padding:34px 25px;background:linear-gradient(165deg,{{ theme_color }},#12233d);color:#fff}.rh-main{padding:36px 34px}.rh-photo{display:block;width:92px;height:92px;margin:0 auto 24px;border-radius:50%;object-fit:cover;border:4px solid rgba(255,255,255,.8)}.rh-initial{display:flex;width:92px;height:92px;margin:0 auto 24px;align-items:center;justify-content:center;border:4px solid rgba(255,255,255,.75);border-radius:50%;font-size:32px;font-weight:800}.rh-sidebar h1{margin:0;text-align:center;font-size:25px;line-height:1.1;overflow-wrap:anywhere}.rh-role{margin:8px 0 25px;text-align:center;color:rgba(255,255,255,.82);font-size:12px}.rh-contact{display:grid;gap:8px;padding-top:20px;border-top:1px solid rgba(255,255,255,.25)}.rh-contact span{display:block}.rh-main>.rh-section:first-child{margin-top:0}.rh-section{margin:0 0 22px;break-inside:avoid}.rh-section h2{margin:0 0 11px;padding-bottom:6px;border-bottom:2px solid {{ theme_color }};color:#1d2a40;font-size:12px;line-height:1.2;letter-spacing:.08em;text-transform:uppercase}.rh-section p{margin:0;color:#3f4a5d}.rh-item{margin-bottom:14px;break-inside:avoid}.rh-item:last-child{margin-bottom:0}.rh-item-head{display:flex;align-items:flex-start;justify-content:space-between;gap:16px}.rh-item strong{display:block;color:#172033;font-size:11.5px}.rh-item time{flex:0 0 auto;color:#687386;font-size:9px}.rh-meta{margin:2px 0 5px;color:{{ theme_color }};font-weight:600}.rh-item p{margin-top:5px}.rh-tag{display:inline-flex;flex-direction:column;margin:0 5px 6px 0;padding:5px 8px;border-radius:5px;background:#f0f3f8;color:#26334a;font-weight:600}.rh-tag small{color:#6d7788;font-size:8px;font-weight:400}@page{size:A4;margin:0}@media(max-width:620px){.rh-page{grid-template-columns:34% 66%}.rh-sidebar{padding:24px 15px}.rh-main{padding:26px 20px}.rh-sidebar h1{font-size:20px}}
+        *{box-sizing:border-box;margin:0;padding:0}
+        html,body{width:100%;min-height:100%;background:var(--rh-page-bg,#fff);color:#172033;font-family:var(--rh-body-font,"Inter"),Arial,sans-serif;font-size:calc(10.5px * var(--rh-font-scale,1));line-height:1.52;overflow-wrap:anywhere}
+        
+        /* rh-page: flexbox container with min-height 1123px (A4 page height) so sidebar spans full height */
+        .rh-page{width:100%;min-height:1123px;display:flex;background:var(--rh-page-bg,#fff)}
+        
+        .rh-sidebar{
+            width:var(--rh-sidebar-width,34%);
+            min-height:1123px;
+            flex-shrink:0;
+            padding:40px 26px;
+            background:linear-gradient(165deg,var(--rh-accent,#3155e7),var(--rh-secondary,#142845));
+            color:#fff;
+            font-size:calc(10.5px * var(--rh-font-scale,1));
+            overflow-wrap:anywhere;
+        }
+        
+        .rh-main{
+            flex:1;
+            min-height:1123px;
+            padding:42px 36px;
+            font-size:calc(10.5px * var(--rh-font-scale,1));
+            overflow-wrap:anywhere;
+            background:#fff;
+        }
+
+        .rh-photo{
+            display:block;
+            width:96px;height:96px;
+            margin:var(--rh-photo-margin,0 auto 22px);
+            border-radius:50%;
+            object-fit:cover;
+            border:3.5px solid rgba(255,255,255,.9);
+            box-shadow:0 8px 20px rgba(0,0,0,.22);
+        }
+        .rh-initial{
+            display:flex;
+            width:96px;height:96px;
+            margin:var(--rh-photo-margin,0 auto 22px);
+            align-items:center;justify-content:center;
+            border:3.5px solid rgba(255,255,255,.85);
+            border-radius:50%;
+            background:rgba(255,255,255,.14);
+            box-shadow:0 8px 20px rgba(0,0,0,.18);
+            font-size:32px;font-weight:800;
+        }
+
+        .rh-sidebar h1{
+            font-family:var(--rh-heading-font,"Poppins"),sans-serif;
+            font-size:calc(25px * var(--rh-font-scale,1));
+            font-weight:750;
+            line-height:1.1;
+            letter-spacing:-0.02em;
+            overflow-wrap:anywhere;
+        }
+        .rh-role{
+            margin:8px 0 24px;
+            color:rgba(255,255,255,.82);
+            font-size:calc(11px * var(--rh-font-scale,1));
+            font-weight:500;
+            letter-spacing:0.06em;
+            text-transform:uppercase;
+        }
+        
+        .rh-contact{
+            display:flex;
+            flex-direction:column;
+            gap:7px;
+            padding-top:20px;
+            border-top:1px solid rgba(255,255,255,.2);
+        }
+        .rh-contact span{
+            display:block;
+            padding:5px 9px;
+            border-radius:6px;
+            background:rgba(255,255,255,.07);
+            color:rgba(255,255,255,.88);
+            font-size:calc(9.5px * var(--rh-font-scale,1));
+            overflow-wrap:anywhere;
+        }
+
+        .rh-hide-profile .rh-photo,
+        .rh-hide-profile .rh-initial,
+        .rh-hide-profile .rh-sidebar>h1,
+        .rh-hide-profile .rh-role,
+        .rh-hide-profile .rh-contact{display:none}
+
+        .rh-section{
+            margin:0 0 var(--rh-section-gap,22px);
+            break-inside:avoid;
+            page-break-inside:avoid;
+            min-width:0;
+        }
+        .rh-section h2{
+            position:relative;
+            margin:0 0 10px;
+            padding-bottom:6px;
+            color:var(--rh-header-color,#17243b);
+            font-family:var(--rh-heading-font,"Poppins"),sans-serif;
+            font-size:calc(12px * var(--rh-font-scale,1) * var(--rh-header-scale,1));
+            font-weight:750;
+            line-height:1.2;
+            letter-spacing:.09em;
+            text-transform:uppercase;
+        }
+        .rh-section h2::after{
+            display:var(--rh-divider-display,block);
+            position:absolute;
+            inset:auto 0 0;
+            height:2px;
+            border-radius:1px;
+            background:var(--rh-accent,#3155e7);
+            content:"";
+        }
+        .rh-section p{
+            margin:0;
+            color:#3f4a5d;
+            white-space:pre-line;
+        }
+
+        .rh-sidebar .rh-section{margin-top:26px;margin-bottom:0}
+        .rh-sidebar .rh-section h2{color:#fff}
+        .rh-sidebar .rh-section h2::after{background:rgba(255,255,255,.3)}
+        .rh-sidebar .rh-section p,
+        .rh-sidebar .rh-meta{color:rgba(255,255,255,.82)}
+
+        .rh-item{
+            margin-bottom:14px;
+            break-inside:avoid;
+            page-break-inside:avoid;
+            min-width:0;
+        }
+        .rh-item:last-child{margin-bottom:0}
+        .rh-item-head{
+            display:flex;
+            align-items:flex-start;
+            justify-content:space-between;
+            gap:14px;
+        }
+        .rh-item strong{
+            display:block;
+            color:#172033;
+            font-size:calc(11.5px * var(--rh-font-scale,1));
+            font-weight:700;
+            overflow-wrap:anywhere;
+        }
+        .rh-item time{
+            flex:0 0 auto;
+            color:#687386;
+            font-size:calc(8.5px * var(--rh-font-scale,1));
+            font-weight:550;
+            white-space:nowrap;
+        }
+        .rh-meta{
+            margin:2px 0 4px;
+            color:var(--rh-accent,#3155e7);
+            font-weight:600;
+            font-size:calc(10px * var(--rh-font-scale,1));
+        }
+        .rh-item p{margin-top:4px}
+
+        .rh-tag{
+            display:inline-flex;
+            max-width:100%;
+            flex-direction:column;
+            margin:0 5px 6px 0;
+            padding:5px 10px;
+            border-radius:6px;
+            background:#f0f3f8;
+            color:#26334a;
+            font-weight:600;
+            overflow-wrap:anywhere;
+        }
+        .rh-sidebar .rh-tag{background:rgba(255,255,255,.14);color:#fff}
+        .rh-tag small{color:#6d7788;font-size:.8em;font-weight:400}
+        .rh-sidebar .rh-tag small{color:rgba(255,255,255,.68)}
+
+        /* One-column layout override */
+        .rh-layout-one-column .rh-page{display:block;min-height:1123px}
+        .rh-layout-one-column .rh-sidebar{
+            display:block;
+            width:100%;
+            min-height:0;
+            padding:32px 38px;
+        }
+        .rh-layout-one-column .rh-main{
+            display:block;
+            width:100%;
+            min-height:0;
+            padding-top:30px;
+        }
+        .rh-layout-one-column .rh-sidebar h1,
+        .rh-layout-one-column .rh-role{text-align:left}
+        .rh-layout-one-column .rh-photo{
+            float:right;
+            width:84px;height:84px;
+            margin:0 0 12px 24px;
+        }
+        .rh-layout-one-column .rh-sidebar-sections{display:none}
+        .rh-layout-one-column .rh-contact{
+            display:flex;
+            flex-wrap:wrap;
+            flex-direction:row;
+            gap:8px 14px;
+            clear:left;
+        }
+
+        /* Print / PDF */
+        @page{size:A4;margin:0}
+        @media print{
+            .rh-page,.rh-sidebar,.rh-main{min-height:297mm}
+            .rh-section{page-break-inside:avoid;break-inside:avoid}
+            .rh-item{page-break-inside:avoid;break-inside:avoid}
+        }
     </style>
 </head>
-<body>
+<body class="{{ layout_class }} {{ profile_class }}">
 <main class="rh-page">
     <aside class="rh-sidebar">
         {{ photo }}
@@ -15,19 +228,9 @@
         <div class="rh-contact">
             <span>{{ email }}</span><span>{{ phone }}</span><span>{{ location }}</span><span>{{ website }}</span>
         </div>
-        {{ skills }}
-        {{ languages }}
-        {{ social_links }}
+        <div class="rh-sidebar-sections">{{ sidebar_sections }}</div>
     </aside>
-    <div class="rh-main">
-        {{ summary }}
-        {{ experiences }}
-        {{ projects }}
-        {{ education }}
-        {{ certifications }}
-        {{ awards }}
-        {{ references }}
-    </div>
+    <div class="rh-main">{{ content_sections }}</div>
 </main>
 </body>
 </html>
